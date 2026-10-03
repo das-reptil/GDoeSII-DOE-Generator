@@ -46,13 +46,32 @@ See [`VORTEX.md`](VORTEX.md) for both vortex modes.
 
 ### Arbitrary Image (GS)
 
-A phase-only computer-generated hologram synthesized from an arbitrary target-intensity image using Gerchberg-Saxton iterations and Fresnel propagation.
+A phase-only computer-generated hologram synthesized from an arbitrary target-intensity image using Gerchberg-Saxton iterations.
 
-Typical uses: logos, symbols, custom illumination, holographic target fields and non-analytical laser-processing patterns.
+For a parallel target plane, the existing Fresnel forward/back propagation is used. With non-zero target pan or tilt, the GS loop propagates between the DOE plane and the physically inclined target plane using rotated-angular-spectrum propagation.
+
+Typical uses: logos, symbols, custom illumination, holographic target fields, non-analytical laser-processing patterns and projection onto inclined surfaces.
 
 See [`GERCHBERG_SAXTON.md`](GERCHBERG_SAXTON.md).
 
 Physical target-size control is documented separately in [`GS_TARGET_SIZE.md`](GS_TARGET_SIZE.md).
+
+## Common target geometry
+
+Target position and target orientation are separate concepts.
+
+The target centre can be displaced from the optical axis by the existing off-axis controls. The target plane can additionally be oriented in 3-D with:
+
+```text
+Target pan (deg)
+Target tilt (deg)
+```
+
+`0 / 0 deg` keeps the historical parallel-plane behaviour.
+
+For analytical generators, pan/tilt affects the target-plane simulation preview but does not redefine the analytic phase function. For `Arbitrary Image (GS)`, non-zero pan/tilt changes the forward/back propagation used during the iterative synthesis itself.
+
+See [`TARGET_PLANE_PAN_TILT.md`](TARGET_PLANE_PAN_TILT.md) for the geometry, conventions, sampling limits and numerical method.
 
 ## Common parameters
 
@@ -62,6 +81,7 @@ All generator modes share at least some of the following concepts:
 - physical pixel pitch,
 - wavelength,
 - optional off-axis steering,
+- optional target-plane pan/tilt,
 - 16-bit phase-map export,
 - DOE/environment refractive-index contrast,
 - GrayScribeX-oriented phase-to-relief export.
@@ -79,4 +99,4 @@ A simple rule of thumb:
 - need a focused donut / vortex spot -> `Vortex + Lens`
 - need an arbitrary intensity image -> `Arbitrary Image (GS)`
 
-Off-axis steering can be added independently when the generated field should be directed away from the optical axis.
+Off-axis steering can be added independently when the generated field should be directed away from the optical axis. Target-plane pan/tilt can be added independently when the field should be evaluated or synthesized on a physically inclined plane.

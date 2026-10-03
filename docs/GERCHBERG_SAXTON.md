@@ -1,6 +1,8 @@
 # Arbitrary Image / Gerchberg-Saxton DOE mode
 
-The `Arbitrary Image (GS)` generator synthesizes a phase-only DOE for a user-supplied target-intensity image using an iterative Gerchberg-Saxton algorithm with Fresnel forward/back propagation.
+The `Arbitrary Image (GS)` generator synthesizes a phase-only DOE for a user-supplied target-intensity image using an iterative Gerchberg-Saxton algorithm.
+
+For parallel target planes (`Target pan = 0`, `Target tilt = 0`) the historical Fresnel forward/back propagation is retained. For a physically tilted target plane, the solver uses rotated-angular-spectrum propagation between the DOE plane and the tilted target plane.
 
 ## Purpose
 
@@ -29,6 +31,8 @@ The implementation alternates between DOE plane and target plane:
 
 The final DOE remains phase-only.
 
+With `pan = 0` and `tilt = 0`, steps 2 and 4 use the established same-sampling Fresnel propagator. With non-zero pan or tilt, the propagation is performed between the DOE plane and the actual tilted target plane using a rotated angular spectrum.
+
 ## Relevant GUI parameters
 
 ```text
@@ -36,10 +40,13 @@ Type:                    Arbitrary Image (GS)
 Width / Height:          DOE calculation raster
 Pixel size (nm):         physical sampling pitch
 Wavelength (nm):         design wavelength
-Focal / target z (mm):   propagation distance to target plane
+Focal / target z (mm):   Z coordinate of target-plane centre
 GS iterations:           number of forward/back iterations
 GS target width (um):    physical target width; 0 = auto fit
 Select target image:     desired target-intensity image
+Target X/Y offset (mm):  lateral target-plane centre, in distance mode
+Target pan (deg):        target-plane rotation about global Y
+Target tilt (deg):       target-plane rotation about global X
 ```
 
 ## Target image
@@ -49,6 +56,8 @@ The imported image is converted to grayscale intensity, normalized and centered 
 The physical target size is controlled separately from the image file resolution.
 
 This is important: a `1000 x 500` input image does not mean a `1000 x 500 um` optical target. The optical target dimensions are defined by the DOE calculation grid, pixel size and `GS target width` setting.
+
+If the target plane is tilted, the image still lives in the **local coordinates of that physical target plane**. It is not merely perspective-warped inside a parallel numerical plane.
 
 ## Physical target size
 
@@ -91,6 +100,35 @@ A useful initial value is:
 
 For development it is often faster to test with a smaller raster and moderate iteration count before moving to a large final design.
 
+## Target-plane position and orientation
+
+The physical pose of the target plane is described by its centre and orientation.
+
+For `Target-plane distance` steering mode, the centre is
+
+```text
+C = (Target X offset, Target Y offset, Focal / target z)
+```
+
+Pan and tilt then rotate the local target-plane basis about this centre.
+
+Conventions:
+
+```text
++X = right
++Y = increasing image rows
++Z = from DOE toward target
+positive pan  -> target normal turns toward +X
+positive tilt -> target normal turns toward -Y
+rotation order: tilt around X, then pan around Y
+```
+
+At `pan = 0`, `tilt = 0`, the target plane is parallel to the DOE plane.
+
+For a tilted target, translation to the target centre is included in the tilted propagation. The normal off-axis steering ramp is therefore not added a second time.
+
+See [`TARGET_PLANE_PAN_TILT.md`](TARGET_PLANE_PAN_TILT.md) for the full geometry, sampling rules and numerical method.
+
 ## Typical use cases
 
 This mode is useful for:
@@ -102,11 +140,12 @@ This mode is useful for:
 - distributing optical power into non-analytical shapes,
 - custom laser-writing or exposure patterns,
 - optical trapping landscapes with several bright regions,
-- research on phase-only computer-generated holograms.
+- research on phase-only computer-generated holograms,
+- projection onto physically inclined surfaces.
 
 ## Target position versus target size
 
-The target size and target position are independent.
+The target size, target centre and target orientation are independent concepts.
 
 For example:
 
@@ -115,21 +154,25 @@ GS target width: 80 um
 Target X:        100 mm
 Target Y:        100 mm
 Target z:        350 mm
+Target pan:      15 deg
+Target tilt:     -5 deg
 ```
 
-means that the GS algorithm synthesizes the local `80 um`-wide image, while the off-axis steering ramp directs that local target field toward the specified physical direction.
+means that the GS solver synthesizes an `80 um`-wide local target image on a plane centred at the specified 3-D coordinate and physically rotated by the requested pan and tilt.
 
-The exported phase is conceptually
+With `pan = tilt = 0`, the established off-axis behaviour remains conceptually
 
 ```text
 phi_export = wrap(phi_GS + phi_steering)
 ```
 
+For a tilted GS target, the target displacement and target orientation are included together in the tilted-plane propagation instead of being represented as a separate second steering ramp.
+
 ## Simulation preview
 
-The intensity preview is shown in local target coordinates.
+The intensity preview is shown in local target-plane coordinates.
 
-For large off-axis targets the preview therefore remains centered instead of disappearing far outside the numerical display window. The exported phase map still contains the steering ramp.
+For large off-axis targets the preview therefore remains centered instead of disappearing far outside the numerical display window. With pan/tilt, the preview corresponds to the field evaluated on the inclined physical target plane.
 
 ## Input-image considerations
 
@@ -154,9 +197,12 @@ The target resolution is limited by the numerical and physical system, including
 - propagation distance,
 - physical DOE aperture,
 - target size,
+- target pan and tilt,
 - input-beam amplitude profile.
 
 The program rejects targets that do not fit inside the sampled target-plane field, but a target can still be numerically legal and optically poorly resolved if its features are too fine.
+
+Tilting a sampled plane introduces an additional spatial-frequency carrier. The GUI reports a carrier-sampling estimate. Below 3 pixels per carrier period the configuration is flagged as marginal; when Nyquist is reached or exceeded, the tilted GS calculation is rejected.
 
 ## Off-axis steering
 
@@ -165,7 +211,9 @@ The mode can be combined with either off-axis method:
 - `Angle`,
 - `Target-plane distance`.
 
-The same steering-ramp sampling checks apply as for the analytical generator modes.
+For parallel target planes, the existing steering-ramp sampling checks apply as before.
+
+For a tilted target used with `Target-plane distance`, the target centre translation is part of the tilted propagation so the lateral displacement is not applied twice.
 
 ## GrayScribeX export
 
@@ -179,6 +227,12 @@ The JSON metadata includes:
 - target raster dimensions,
 - target placement,
 - off-axis geometry,
+- target-plane centre,
+- target pan and tilt,
+- local target-plane basis vectors,
+- target-plane normal,
+- tilted-plane sampling information,
+- 3-D coordinates of all four image-target corners,
 - wavelength and sampling parameters.
 
 The relief conversion again uses
@@ -193,6 +247,8 @@ h_2pi = lambda / Delta n
 The current Gerchberg-Saxton implementation is a scalar phase-only design method. It does not guarantee a unique or globally optimal solution.
 
 The displayed simulation assumes a uniform source amplitude. A real Gaussian input beam can change the resulting intensity pattern.
+
+The tilted-plane solver uses rotated angular-spectrum interpolation. As with every sampled diffraction method, large tilts and spectra close to the numerical bandwidth limit require particular care. The central carrier sampling check is useful but does not by itself guarantee that the entire field spectrum is alias-free.
 
 The algorithm also does not directly model:
 

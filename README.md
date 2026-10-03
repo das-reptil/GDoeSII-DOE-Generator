@@ -10,6 +10,7 @@ The application focuses on phase-only DOE synthesis, scalar Fresnel simulation, 
 - blazed phase grating
 - binary Fresnel zone plate
 - vortex / spiral phase
+- focused `Vortex + Lens` mode for direct donut / optical-vortex focusing
 - arbitrary target images using Gerchberg-Saxton phase retrieval
 - physical target-width control for Gerchberg-Saxton target images
 - Fresnel forward/back propagation
@@ -48,7 +49,7 @@ DOI: https://doi.org/10.1016/j.softx.2019.01.012
 
 The original software is distributed under the **Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)** license. This repository retains that license for the adapted work. See `LICENSE` and `NOTICE.md`.
 
-This standalone version contains substantial modifications and extensions, including Python 3 modernization, a dedicated DOE-synthesis engine, Gerchberg-Saxton synthesis, 16-bit output, refractive-index-based relief mapping, GrayScribeX-oriented export, physical target sizing and off-axis target steering.
+This standalone version contains substantial modifications and extensions, including Python 3 modernization, a dedicated DOE-synthesis engine, focused vortex generation, Gerchberg-Saxton synthesis, 16-bit output, refractive-index-based relief mapping, GrayScribeX-oriented export, physical target sizing and off-axis target steering.
 
 This project is not an official Nanoscribe product and is not affiliated with or endorsed by Nanoscribe GmbH.
 
@@ -65,6 +66,7 @@ Compared with the original GDoeSII software, this standalone project includes a 
 - arbitrary-target Gerchberg-Saxton synthesis with FFT-based Fresnel forward/back propagation
 - physical GS target-width control with aspect-ratio-preserving target height
 - continuous lens and grating generators, binary Fresnel zone plates and vortex phase elements
+- combined focused `Vortex + Lens` phase profiles
 - propagated intensity simulation for generated phase profiles
 - wavelength- and refractive-index-based phase-to-relief conversion
 - separate DOE/material and environment refractive indices using `Delta n = n_material - n_environment`
@@ -82,6 +84,7 @@ The complete development and update history is documented in [`CHANGELOG.md`](CH
 
 - [`docs/PARAMETERS.md`](docs/PARAMETERS.md) – complete GUI parameter reference, units, physical meaning and parameter interactions.
 - [`docs/GS_TARGET_SIZE.md`](docs/GS_TARGET_SIZE.md) – detailed description of physical target sizing for Arbitrary Image / Gerchberg-Saxton designs.
+- [`docs/VORTEX.md`](docs/VORTEX.md) – Vortex and focused Vortex + Lens operation, use cases, example settings and limitations.
 
 ## Requirements
 
@@ -147,7 +150,40 @@ Binary `0 / π` phase zones.
 
 ### Vortex
 
-Azimuthal phase profile with selectable topological charge.
+Azimuthal phase profile with selectable topological charge:
+
+```text
+phi_vortex = charge * atan2(y,x)
+```
+
+This mode applies only the vortex phase. It is useful when focusing is supplied by another optical element or when the phase element is used for OAM/mode-conversion experiments, structured illumination, optical manipulation or phase-singularity studies.
+
+### Vortex + Lens
+
+This mode combines the vortex phase with the quadratic phase of a focusing lens:
+
+```text
+phi_total = wrap(phi_lens + phi_vortex)
+```
+
+`Focal / target z (mm)` acts as the focal length. The local simulation is evaluated at this focal distance, where a suitable input beam produces the characteristic focused optical-vortex / donut-like intensity distribution.
+
+Typical use cases include:
+
+- focused donut beams,
+- optical tweezers and particle manipulation,
+- particle rotation / orbital-angular-momentum experiments,
+- ring-shaped laser processing,
+- mode conversion,
+- structured illumination and vortex-based microscopy.
+
+The mode remains compatible with off-axis steering. The exported phase can therefore contain:
+
+```text
+phi_export = wrap(phi_lens + phi_vortex + phi_steering)
+```
+
+See [`docs/VORTEX.md`](docs/VORTEX.md) for details.
 
 ### Arbitrary Image (GS)
 
@@ -275,7 +311,7 @@ gray ~32768   -> pi rad
 gray 65535    -> approximately 2*pi
 ```
 
-A JSON sidecar records generator, target-size and off-axis parameters where applicable.
+A JSON sidecar records generator, target-size and off-axis parameters where applicable. Focused vortex metadata additionally records vortex charge and focal length.
 
 ## Relief / GrayScribeX-oriented export
 
@@ -325,6 +361,7 @@ config/                        PyInstaller configuration
 tests/                         numerical and export tests
 docs/PARAMETERS.md             complete parameter reference
 docs/GS_TARGET_SIZE.md         detailed GS physical target sizing
+docs/VORTEX.md                 vortex modes, focused vortex and use cases
 .github/workflows/             Windows CI/EXE build
 CHANGELOG.md                   software modernization and update history
 NOTICE.md                      origin, attribution and modification notice

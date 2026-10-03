@@ -1,0 +1,29 @@
+cff-version: 1.2.0
+title: "GDoeSII DOE Generator"
+message: "If you use this software in research, please cite the original GDoeSII publication."
+type: software
+license: CC-BY-NC-3.0
+authors:
+  - family-names: "Dharmavarapu"
+    given-names: "Raghu"
+  - family-names: "Bhattacharya"
+    given-names: "Shanti"
+  - family-names: "Juodkazis"
+    given-names: "Saulius"
+repository-code: "https://github.com/das-reptil/GDoeSII-DOE-Generator"
+preferred-citation:
+  type: article
+  title: "GDOESII: Software for design of diffractive optical elements and phase mask conversion to GDSII lithography files"
+  authors:
+    - family-names: "Dharmavarapu"
+      given-names: "Raghu"
+    - family-names: "Bhattacharya"
+      given-names: "Shanti"
+    - family-names: "Juodkazis"
+      given-names: "Saulius"
+  journal: "SoftwareX"
+  volume: 9
+  start: 126
+  end: 131
+  year: 2019
+  doi: "10.1016/j.softx.2019.01.012"

@@ -47,6 +47,18 @@ The entries below describe functional and architectural changes in the adapted s
 - Added vortex / spiral phase elements with configurable topological charge.
 - Added arbitrary-target DOE synthesis using an iterative Gerchberg-Saxton algorithm.
 
+### Focused Vortex + Lens mode
+
+- Added a dedicated `Vortex + Lens` generator mode while retaining the original pure `Vortex` mode.
+- Combined the quadratic lens phase and azimuthal vortex phase as `wrap(phi_lens + phi_vortex)`.
+- Reused `Focal / target z (mm)` as the focal length of the combined focused-vortex DOE.
+- Added focal-plane simulation of the combined phase profile.
+- Added vortex charge and focal-length information to generator metadata.
+- Kept off-axis steering compatible with the combined mode, allowing `phi_lens + phi_vortex + phi_steering`.
+- Added automated tests for the combined phase construction.
+- Added `docs/VORTEX.md` with physical background, use cases, example parameters, off-axis interaction and fabrication notes.
+- Expanded `docs/PARAMETERS.md` with focused-vortex parameter descriptions and use cases.
+
 ### Physical Gerchberg-Saxton target sizing
 
 - Added `GS target width (um; 0=fit)` to the standalone GUI.
@@ -131,12 +143,14 @@ The tests also verify that a `1000 nm` DOE pixel pitch falls below two pixels pe
 
 - Added `docs/GS_TARGET_SIZE.md` with a focused explanation of physical Gerchberg-Saxton target sizing.
 - Added `docs/PARAMETERS.md` as a complete GUI parameter reference covering units, physical meaning, generator-specific use, off-axis steering, refractive indices, phase-to-relief conversion and export behavior.
+- Added `docs/VORTEX.md` for Vortex and focused Vortex + Lens operation, physical interpretation, use cases and example settings.
 - Added parameter-interaction guidance, including DOE dimensions versus pixel pitch, GS target size versus sampling, off-axis ramp sampling and relief height versus refractive-index contrast.
 - Linked the parameter documentation prominently from `README.md`.
 
 ### Testing and build automation
 
 - Added tests for all analytical DOE generators.
+- Added tests for the focused Vortex + Lens phase combination.
 - Added tests for the Gerchberg-Saxton synthesis path.
 - Added tests for phase wrapping and 16-bit conversion.
 - Added tests for 16-bit PNG round-tripping.

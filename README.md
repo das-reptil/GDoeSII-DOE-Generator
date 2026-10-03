@@ -11,6 +11,7 @@ The application focuses on phase-only DOE synthesis, scalar Fresnel simulation, 
 - binary Fresnel zone plate
 - vortex / spiral phase
 - arbitrary target images using Gerchberg-Saxton phase retrieval
+- physical target-width control for Gerchberg-Saxton target images
 - Fresnel forward/back propagation
 - true 16-bit phase PNG output
 - local propagated-intensity preview
@@ -47,7 +48,7 @@ DOI: https://doi.org/10.1016/j.softx.2019.01.012
 
 The original software is distributed under the **Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)** license. This repository retains that license for the adapted work. See `LICENSE` and `NOTICE.md`.
 
-This standalone version contains substantial modifications and extensions, including Python 3 modernization, a dedicated DOE-synthesis engine, Gerchberg-Saxton synthesis, 16-bit output, refractive-index-based relief mapping, GrayScribeX-oriented export and off-axis target steering.
+This standalone version contains substantial modifications and extensions, including Python 3 modernization, a dedicated DOE-synthesis engine, Gerchberg-Saxton synthesis, 16-bit output, refractive-index-based relief mapping, GrayScribeX-oriented export, physical target sizing and off-axis target steering.
 
 This project is not an official Nanoscribe product and is not affiliated with or endorsed by Nanoscribe GmbH.
 
@@ -62,6 +63,7 @@ Compared with the original GDoeSII software, this standalone project includes a 
 - native unsigned 16-bit phase generation over the full `0 ... 65535` range
 - deterministic `0 ... 2*pi` phase mapping and true 16-bit PNG output
 - arbitrary-target Gerchberg-Saxton synthesis with FFT-based Fresnel forward/back propagation
+- physical GS target-width control with aspect-ratio-preserving target height
 - continuous lens and grating generators, binary Fresnel zone plates and vortex phase elements
 - propagated intensity simulation for generated phase profiles
 - wavelength- and refractive-index-based phase-to-relief conversion
@@ -75,6 +77,11 @@ Compared with the original GDoeSII software, this standalone project includes a 
 - dedicated PyInstaller Windows packaging and GitHub Actions EXE builds
 
 The complete development and update history is documented in [`CHANGELOG.md`](CHANGELOG.md). Attribution and modification details are documented in [`NOTICE.md`](NOTICE.md).
+
+## Documentation
+
+- [`docs/PARAMETERS.md`](docs/PARAMETERS.md) – complete GUI parameter reference, units, physical meaning and parameter interactions.
+- [`docs/GS_TARGET_SIZE.md`](docs/GS_TARGET_SIZE.md) – detailed description of physical target sizing for Arbitrary Image / Gerchberg-Saxton designs.
 
 ## Requirements
 
@@ -146,6 +153,29 @@ Azimuthal phase profile with selectable topological charge.
 
 Gerchberg-Saxton phase retrieval using Fresnel forward/back propagation.
 
+The physical target width can be controlled with:
+
+```text
+GS target width (um; 0=fit)
+```
+
+`0` preserves the previous auto-fit behavior. A positive value specifies the desired physical target width in micrometres. The target height is derived automatically from the source-image aspect ratio, the image is centered in the local target plane, and the requested dimensions are quantized to whole target-plane pixels.
+
+Example:
+
+```text
+DOE:               512 x 512 px
+Pixel size:         500 nm
+Calculation field:  256 x 256 um
+Target image:       2:1 aspect ratio
+GS target width:    80 um
+
+Target raster:      160 x 80 px
+Actual target size: 80 x 40 um
+```
+
+The requested target size is validated against the sampled target-plane field. Target geometry is included in the JSON metadata.
+
 Typical starting values:
 
 ```text
@@ -155,11 +185,14 @@ Pixel size:           500 nm
 Wavelength:           633 nm
 Target z:             10 mm
 GS iterations:        50
+GS target width:      0 um (auto fit)
 DOE index:            1.52
 Environment index:    1.00
 ```
 
 For larger designs, first verify the result at 256 or 512 pixels and a moderate iteration count.
+
+See [`docs/GS_TARGET_SIZE.md`](docs/GS_TARGET_SIZE.md) for details.
 
 ## Off-axis target steering
 
@@ -230,6 +263,8 @@ The program warns when the phase ramp is poorly sampled. Below 2 pixels per diag
 
 The exported phase map contains the steering ramp. The displayed intensity simulation remains centered in local target coordinates, so large physical offsets do not disappear outside the small numerical preview window.
 
+Target position and target size are independent: for example an 80 um wide GS target can be directed to a physical target coordinate such as `x=100 mm`, `y=100 mm`, `z=350 mm`.
+
 ## 16-bit phase-map export
 
 `Save 16-bit Phase PNG` writes a wrapped phase map with unsigned 16-bit grayscale encoding:
@@ -240,7 +275,7 @@ gray ~32768   -> pi rad
 gray 65535    -> approximately 2*pi
 ```
 
-A JSON sidecar records generator and off-axis parameters.
+A JSON sidecar records generator, target-size and off-axis parameters where applicable.
 
 ## Relief / GrayScribeX-oriented export
 
@@ -267,6 +302,8 @@ Delta n       = 0.52
 h_2pi         = 1217.31 nm
 ```
 
+The environment index is not fixed to air. A surrounding medium with a refractive index different from `1.0` can be entered explicitly, so the relief is calculated from the actual `Delta n`.
+
 `Export GrayScribeX` writes:
 
 ```text
@@ -274,7 +311,7 @@ name.png
 name.json
 ```
 
-The PNG is unsigned 16-bit grayscale. The JSON contains optical parameters, refractive indices, physical dimensions, relief range, generator settings and off-axis geometry.
+The PNG is unsigned 16-bit grayscale. The JSON contains optical parameters, refractive indices, physical dimensions, relief range, generator settings, GS target geometry and off-axis geometry where applicable.
 
 Machine-specific grayscale/exposure calibration remains the responsibility of the lithography system and its software.
 
@@ -286,6 +323,8 @@ src/gdoesii_doe.py             DOE generation, propagation and off-axis steering
 src/gdoesii_grayscribe.py      16-bit relief/height-map export
 config/                        PyInstaller configuration
 tests/                         numerical and export tests
+docs/PARAMETERS.md             complete parameter reference
+docs/GS_TARGET_SIZE.md         detailed GS physical target sizing
 .github/workflows/             Windows CI/EXE build
 CHANGELOG.md                   software modernization and update history
 NOTICE.md                      origin, attribution and modification notice

@@ -47,6 +47,19 @@ The entries below describe functional and architectural changes in the adapted s
 - Added vortex / spiral phase elements with configurable topological charge.
 - Added arbitrary-target DOE synthesis using an iterative Gerchberg-Saxton algorithm.
 
+### Physical Gerchberg-Saxton target sizing
+
+- Added `GS target width (um; 0=fit)` to the standalone GUI.
+- Preserved the previous auto-fit behavior when the value is `0`.
+- Added physical target-width specification in micrometres for Arbitrary Image / Gerchberg-Saxton designs.
+- Derived the target height automatically from the source-image aspect ratio.
+- Quantized requested target dimensions to whole target-plane pixels and reported the actual resulting physical size.
+- Centered the resized target inside the local target calculation field.
+- Added validation that rejects requested target dimensions larger than the sampled target-plane field.
+- Added requested/actual target geometry, raster dimensions and placement to generated metadata.
+- Kept physical target size independent from off-axis target position, so a target can be sized locally and then steered to a physical `(x, y, z)` location.
+- Added tests for physical target sizing, auto-fit compatibility and oversized-target rejection.
+
 ### Fresnel propagation and simulation
 
 - Added scalar Fresnel propagation using FFT-based transfer functions.
@@ -114,6 +127,13 @@ The expected geometry is approximately:
 
 The tests also verify that a `1000 nm` DOE pixel pitch falls below two pixels per diagonal ramp period for this geometry and therefore produces an aliasing warning.
 
+### Documentation
+
+- Added `docs/GS_TARGET_SIZE.md` with a focused explanation of physical Gerchberg-Saxton target sizing.
+- Added `docs/PARAMETERS.md` as a complete GUI parameter reference covering units, physical meaning, generator-specific use, off-axis steering, refractive indices, phase-to-relief conversion and export behavior.
+- Added parameter-interaction guidance, including DOE dimensions versus pixel pitch, GS target size versus sampling, off-axis ramp sampling and relief height versus refractive-index contrast.
+- Linked the parameter documentation prominently from `README.md`.
+
 ### Testing and build automation
 
 - Added tests for all analytical DOE generators.
@@ -123,6 +143,7 @@ The tests also verify that a `1000 nm` DOE pixel pitch falls below two pixels pe
 - Added tests for refractive-index contrast and phase-to-height conversion.
 - Added tests for direct generated-DOE to 16-bit relief export.
 - Added tests for off-axis geometry and sampling limits.
+- Added tests for physical GS target sizing and bounds checking.
 - Added a Windows CI build using Python 3.13 and PyInstaller.
 - Added automatic executable verification and GitHub Actions artifact upload.
 

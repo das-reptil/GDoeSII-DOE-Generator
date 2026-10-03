@@ -141,11 +141,16 @@ The tests also verify that a `1000 nm` DOE pixel pitch falls below two pixels pe
 
 ### Documentation
 
+- Added `docs/GENERATORS.md` as a central overview of all generator modes and a quick mode-selection guide.
+- Added `docs/LENS.md` with the quadratic lens phase model, focusing use cases, off-axis focusing, chromatic behavior, fabrication notes and paraxial-model limitations.
+- Added `docs/GRATING.md` with the blazed-phase model, beam-steering/diffraction use cases, grating-angle convention, sampling guidance and scalar-model limitations.
+- Added `docs/FRESNEL_ZONE_PLATE.md` with binary phase-zone operation, typical applications, `pi` relief-depth relation, outer-zone sampling constraints and limitations.
+- Added `docs/VORTEX.md` for Vortex and focused Vortex + Lens operation, physical interpretation, use cases and example settings.
+- Added `docs/GERCHBERG_SAXTON.md` with iterative GS operation, target-image preparation, convergence guidance, arbitrary beam-shaping use cases and limitations.
 - Added `docs/GS_TARGET_SIZE.md` with a focused explanation of physical Gerchberg-Saxton target sizing.
 - Added `docs/PARAMETERS.md` as a complete GUI parameter reference covering units, physical meaning, generator-specific use, off-axis steering, refractive indices, phase-to-relief conversion and export behavior.
-- Added `docs/VORTEX.md` for Vortex and focused Vortex + Lens operation, physical interpretation, use cases and example settings.
 - Added parameter-interaction guidance, including DOE dimensions versus pixel pitch, GS target size versus sampling, off-axis ramp sampling and relief height versus refractive-index contrast.
-- Linked the parameter documentation prominently from `README.md`.
+- Linked all generator-specific documentation prominently from `README.md`.
 
 ### Testing and build automation
 

@@ -47,6 +47,31 @@ This standalone version contains substantial modifications and extensions, inclu
 
 This project is not an official Nanoscribe product and is not affiliated with or endorsed by Nanoscribe GmbH.
 
+## Software changes and modernization
+
+Compared with the original GDoeSII software, this standalone project includes a substantial modernization and specialization of the DOE workflow:
+
+- port to current Python 3 with CPython 3.13 as the primary target
+- updated NumPy/Pillow based numerical and image processing
+- standalone DOE application independent of the original GDoeSII main GUI
+- reusable DOE calculation core separated from the user interface
+- native unsigned 16-bit phase generation over the full `0 ... 65535` range
+- deterministic `0 ... 2*pi` phase mapping and true 16-bit PNG output
+- arbitrary-target Gerchberg-Saxton synthesis with FFT-based Fresnel forward/back propagation
+- continuous lens and grating generators, binary Fresnel zone plates and vortex phase elements
+- propagated intensity simulation for generated phase profiles
+- wavelength- and refractive-index-based phase-to-relief conversion
+- separate DOE/material and environment refractive indices using `Delta n = n_material - n_environment`
+- calculated maximum `2*pi` relief height
+- direct 16-bit grayscale relief export with JSON metadata
+- exact off-axis target steering by physical `(x, y, z)` target coordinates or projected angles
+- phase-ramp period and pixels-per-period sampling checks with aliasing warnings
+- local target-coordinate simulation for large off-axis displacements
+- automated numerical/export tests
+- dedicated PyInstaller Windows packaging and GitHub Actions EXE builds
+
+The complete development and update history is documented in [`CHANGELOG.md`](CHANGELOG.md). Attribution and modification details are documented in [`NOTICE.md`](NOTICE.md).
+
 ## Requirements
 
 Recommended:
@@ -258,6 +283,8 @@ src/gdoesii_grayscribe.py      16-bit relief/height-map export
 config/                        PyInstaller configuration
 tests/                         numerical and export tests
 .github/workflows/             Windows CI/EXE build
+CHANGELOG.md                   software modernization and update history
+NOTICE.md                      origin, attribution and modification notice
 ```
 
 ## License

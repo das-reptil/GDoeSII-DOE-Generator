@@ -10,6 +10,7 @@ This document describes the user-facing parameters of the standalone **GDoeSII D
 - `Grating` – continuous blazed phase ramp.
 - `Fresnel Zone Plate` – binary `0 / pi` phase zones.
 - `Vortex` – azimuthal phase profile with selectable topological charge.
+- `Vortex + Lens` – focused vortex combining the azimuthal vortex phase with the quadratic lens phase.
 - `Arbitrary Image (GS)` – phase-only DOE synthesized for an arbitrary target-intensity image using Gerchberg-Saxton iterations.
 
 Only parameters relevant to the selected generator affect the generated phase.
@@ -61,6 +62,7 @@ It affects:
 - lens phase,
 - Fresnel zone plate phase,
 - Fresnel propagation,
+- focused Vortex + Lens designs,
 - off-axis steering ramp,
 - phase-to-relief conversion for GrayScribeX-oriented export.
 
@@ -72,10 +74,13 @@ This field is shared by several generator modes:
 
 - `Lens` – focal length.
 - `Fresnel Zone Plate` – focal length.
+- `Vortex + Lens` – focal length of the combined focused-vortex DOE.
 - `Arbitrary Image (GS)` – propagation distance from DOE to target plane.
 - `Target-plane distance` off-axis mode – axial target coordinate `z`.
 
 The current GUI requires a positive value.
+
+For `Vortex + Lens`, the local simulation is evaluated at this focal distance. For a suitable input field, the resulting focal-plane intensity is expected to show the characteristic dark center and ring-like / donut distribution of a focused optical vortex.
 
 For a GS target, the target image is synthesized in the local target plane at this propagation distance. Off-axis steering is then added as a separate phase ramp.
 
@@ -101,15 +106,49 @@ This rotates the grating vector in the DOE plane. `0 deg` produces a phase varia
 
 ## Vortex charge
 
-Used only for `Vortex`.
+Used by `Vortex` and `Vortex + Lens`.
 
 The integer topological charge controls the azimuthal phase winding:
 
 ```text
-phi = charge * atan2(y, x)
+phi_vortex = charge * atan2(y, x)
 ```
 
-A charge of zero is not allowed. The sign changes the handedness of the vortex.
+A charge of zero is not allowed. The sign changes the handedness of the vortex phase.
+
+Examples:
+
+```text
+charge = +1   one positive 2*pi phase winding
+charge = +2   two positive phase windings
+charge = -1   one winding with opposite handedness
+```
+
+### Vortex
+
+The pure `Vortex` mode generates only the azimuthal phase term. It is useful if focusing is supplied by another optical element or if the vortex phase is part of a larger optical setup.
+
+Typical applications include OAM mode generation, structured illumination, optical manipulation, phase-singularity experiments and mode conversion.
+
+### Vortex + Lens
+
+`Vortex + Lens` combines focusing and vortex generation in one phase profile:
+
+```text
+phi_total = wrap(phi_lens + phi_vortex)
+```
+
+with
+
+```text
+phi_lens = -pi * (x^2 + y^2) / (lambda * f)
+```
+
+The `Focal / target z` value is used as focal length `f`.
+
+Typical applications include focused donut beams, optical tweezers, particle manipulation/rotation, ring-shaped laser processing, OAM experiments, structured illumination and vortex-based microscopy.
+
+See [`VORTEX.md`](VORTEX.md) for a more detailed explanation and examples.
 
 ## GS iterations
 
@@ -196,6 +235,14 @@ phi_offset(X,Y) = 2*pi/lambda * (sx*X + sy*Y)
 
 This separates **target position** from **target size**: for example a GS image can be 80 um wide while being directed to a point at `x=100 mm`, `y=100 mm`, `z=350 mm`.
 
+For `Vortex + Lens`, off-axis steering adds a third phase contribution:
+
+```text
+phi_export = wrap(phi_lens + phi_vortex + phi_steering)
+```
+
+This can direct a focused vortex spot away from the optical axis.
+
 ## Theta X (deg) / Theta Y (deg)
 
 Used in `Angle` off-axis mode.
@@ -275,7 +322,7 @@ gray ~32768   -> pi rad
 gray 65535    -> approximately 2*pi
 ```
 
-A JSON sidecar stores generator, sampling and off-axis parameters. For GS targets it also stores the requested and actual target geometry.
+A JSON sidecar stores generator, sampling and off-axis parameters. For GS targets it also stores the requested and actual target geometry. For `Vortex + Lens` it stores the vortex charge, focal length and the combined `lens + vortex` phase type.
 
 ## Export GrayScribeX
 
@@ -292,6 +339,7 @@ The export includes, where applicable:
 - DOE pixel pitch,
 - DOE physical dimensions,
 - generator parameters,
+- Vortex charge and focused-vortex focal length,
 - GS target geometry,
 - off-axis target geometry and steering sampling.
 
@@ -306,6 +354,7 @@ Several parameters should be considered together rather than independently:
 - **Pixel size + GS target width** determine the number of raster pixels across the requested target.
 - **Wavelength + DOE index + environment index** determine the required physical relief height.
 - **Target z + DOE aperture + wavelength** influence the spatial scale and quality achievable in Fresnel propagation.
+- **Vortex charge + aperture + focal length + input-beam amplitude** influence the structure of a focused vortex field.
 - **GS iterations** affect convergence but cannot compensate for inadequate spatial sampling.
 
 The GUI reports the most important derived values and rejects physically or numerically incompatible inputs where implemented.

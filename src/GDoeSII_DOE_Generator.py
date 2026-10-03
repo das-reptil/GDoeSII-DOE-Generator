@@ -82,7 +82,7 @@ class App:
         row = 0
         ttk.Label(left, text="DOE Generator", font=("calibri", 14, "bold")).grid(row=row, column=0, columnspan=2, sticky=W, pady=(0, 8)); row += 1
         ttk.Label(left, text="Type").grid(row=row, column=0, sticky=W)
-        ttk.OptionMenu(left, self.kind, "Lens", "Lens", "Grating", "Fresnel Zone Plate", "Vortex", "Arbitrary Image (GS)").grid(row=row, column=1, sticky=EW); row += 1
+        ttk.OptionMenu(left, self.kind, "Lens", "Lens", "Grating", "Fresnel Zone Plate", "Vortex", "Vortex + Lens", "Arbitrary Image (GS)").grid(row=row, column=1, sticky=EW); row += 1
         for label, var in (
             ("Width (px)", self.width), ("Height (px)", self.height),
             ("Pixel size (nm)", self.pixel_nm), ("Wavelength (nm)", self.wavelength_nm),
@@ -196,6 +196,11 @@ class App:
             phase = fresnel_zone_plate_phase(p["width_px"], p["height_px"], p["pixel_size_nm"], p["wavelength_nm"], p["distance_mm"])
         elif kind == "Vortex":
             phase = vortex_phase(p["width_px"], p["height_px"], p["pixel_size_nm"], self.charge.get())
+        elif kind == "Vortex + Lens":
+            phase = wrap_phase(
+                lens_phase(p["width_px"], p["height_px"], p["pixel_size_nm"], p["wavelength_nm"], p["distance_mm"])
+                + vortex_phase(p["width_px"], p["height_px"], p["pixel_size_nm"], self.charge.get())
+            )
         else:
             if not self.target_path:
                 raise ValueError("Select a target image first.")
@@ -222,7 +227,10 @@ class App:
             self.phase, self.simulation = phase, sim
             self.metadata = {"type": self.kind.get(), **p, "offset": offset}
             if self.kind.get() == "Grating": self.metadata.update(grating_period_um=float(self.period_um.get()), grating_angle_deg=float(self.angle_deg.get()))
-            if self.kind.get() == "Vortex": self.metadata["vortex_charge"] = int(self.charge.get())
+            if self.kind.get() in ("Vortex", "Vortex + Lens"):
+                self.metadata["vortex_charge"] = int(self.charge.get())
+            if self.kind.get() == "Vortex + Lens":
+                self.metadata.update(focal_length_mm=float(p["distance_mm"]), phase_combination="lens + vortex")
             if self.kind.get() == "Arbitrary Image (GS)":
                 self.metadata.update(
                     gs_iterations=int(self.iterations.get()),
@@ -237,11 +245,15 @@ class App:
                 "Generator: {}".format(self.kind.get()),
                 "Size: {} x {} px; pixel: {:.3f} nm".format(p["width_px"], p["height_px"], p["pixel_size_nm"]),
                 "Physical size: {:.3f} x {:.3f} um".format(p["width_px"] * p["pixel_size_nm"] / 1000, p["height_px"] * p["pixel_size_nm"] / 1000),
-                "Wavelength: {:.3f} nm; target z: {:.4f} mm".format(p["wavelength_nm"], p["distance_mm"]),
+                "Wavelength: {:.3f} nm; focal / target z: {:.4f} mm".format(p["wavelength_nm"], p["distance_mm"]),
                 "Max 2pi relief: {:.3f} um".format(relief / 1000),
                 "Offset mode: {}".format(offset["mode"]),
                 "Theta X/Y: {:.4f} / {:.4f} deg; total: {:.4f} deg".format(offset["theta_x_deg"], offset["theta_y_deg"], offset["total_angle_deg"]),
             ]
+            if self.kind.get() in ("Vortex", "Vortex + Lens"):
+                lines.append("Vortex charge: {}".format(int(self.charge.get())))
+            if self.kind.get() == "Vortex + Lens":
+                lines.append("Focused vortex: lens + azimuthal vortex phase; simulation plane = focal plane.")
             if target_info is not None:
                 requested = target_info["requested_width_um"]
                 mode_text = "auto fit" if requested is None else "requested {:.3f} um width".format(requested)

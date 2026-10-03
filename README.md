@@ -2,7 +2,7 @@
 
 Standalone diffractive optical element (DOE) generator derived from **GDoeSII**.
 
-The application focuses on phase-only DOE synthesis, scalar Fresnel simulation, off-axis target steering and 16-bit export for grayscale lithography workflows.
+The application focuses on phase-only DOE synthesis, scalar Fresnel simulation, off-axis target steering, tilted target-plane propagation and 16-bit export for grayscale lithography workflows.
 
 ## Features
 
@@ -13,12 +13,13 @@ The application focuses on phase-only DOE synthesis, scalar Fresnel simulation, 
 - focused `Vortex + Lens` mode for direct donut / optical-vortex focusing
 - arbitrary target images using Gerchberg-Saxton phase retrieval
 - physical target-width control for Gerchberg-Saxton target images
-- Fresnel forward/back propagation
+- Fresnel forward/back propagation for parallel target planes
+- target-plane pan/tilt with rotated-angular-spectrum propagation
 - true 16-bit phase PNG output
 - local propagated-intensity preview
 - off-axis steering by angle or by target-plane X/Y offset
 - exact 3-D target direction for large offsets
-- phase-ramp sampling / pixels-per-period warning
+- phase-ramp and tilted-plane sampling warnings
 - material/environment refractive-index contrast
 - phase-to-relief conversion
 - direct 16-bit GrayScribeX-oriented height-map export
@@ -49,7 +50,7 @@ DOI: https://doi.org/10.1016/j.softx.2019.01.012
 
 The original software is distributed under the **Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)** license. This repository retains that license for the adapted work. See `LICENSE` and `NOTICE.md`.
 
-This standalone version contains substantial modifications and extensions, including Python 3 modernization, a dedicated DOE-synthesis engine, focused vortex generation, Gerchberg-Saxton synthesis, 16-bit output, refractive-index-based relief mapping, GrayScribeX-oriented export, physical target sizing and off-axis target steering.
+This standalone version contains substantial modifications and extensions, including Python 3 modernization, a dedicated DOE-synthesis engine, focused vortex generation, Gerchberg-Saxton synthesis, 16-bit output, refractive-index-based relief mapping, GrayScribeX-oriented export, physical target sizing, off-axis target steering and target-plane pan/tilt.
 
 This project is not an official Nanoscribe product and is not affiliated with or endorsed by Nanoscribe GmbH.
 
@@ -64,6 +65,8 @@ Compared with the original GDoeSII software, this standalone project includes a 
 - native unsigned 16-bit phase generation over the full `0 ... 65535` range
 - deterministic `0 ... 2*pi` phase mapping and true 16-bit PNG output
 - arbitrary-target Gerchberg-Saxton synthesis with FFT-based Fresnel forward/back propagation
+- rotated-angular-spectrum propagation for physically tilted GS target planes
+- target-plane pan/tilt geometry with local basis, normal and 3-D corner metadata
 - physical GS target-width control with aspect-ratio-preserving target height
 - continuous lens and grating generators, binary Fresnel zone plates and vortex phase elements
 - combined focused `Vortex + Lens` phase profiles
@@ -74,6 +77,7 @@ Compared with the original GDoeSII software, this standalone project includes a 
 - direct 16-bit grayscale relief export with JSON metadata
 - exact off-axis target steering by physical `(x, y, z)` target coordinates or projected angles
 - phase-ramp period and pixels-per-period sampling checks with aliasing warnings
+- tilted-target carrier sampling checks with aliasing rejection for GS
 - local target-coordinate simulation for large off-axis displacements
 - automated numerical/export tests
 - dedicated PyInstaller Windows packaging and GitHub Actions EXE builds
@@ -87,8 +91,9 @@ The complete development and update history is documented in [`CHANGELOG.md`](CH
 - [`docs/GRATING.md`](docs/GRATING.md) – blazed grating principle, diffraction/beam-steering use cases, angle convention and sampling considerations.
 - [`docs/FRESNEL_ZONE_PLATE.md`](docs/FRESNEL_ZONE_PLATE.md) – binary phase FZP operation, fabrication depth, use cases and outer-zone sampling limits.
 - [`docs/VORTEX.md`](docs/VORTEX.md) – Vortex and focused Vortex + Lens operation, use cases, example settings and limitations.
-- [`docs/GERCHBERG_SAXTON.md`](docs/GERCHBERG_SAXTON.md) – arbitrary-image GS synthesis, target preparation, convergence, use cases and limitations.
+- [`docs/GERCHBERG_SAXTON.md`](docs/GERCHBERG_SAXTON.md) – arbitrary-image GS synthesis, target preparation, convergence, target-plane tilt and limitations.
 - [`docs/GS_TARGET_SIZE.md`](docs/GS_TARGET_SIZE.md) – detailed physical target sizing for Arbitrary Image / Gerchberg-Saxton designs.
+- [`docs/TARGET_PLANE_PAN_TILT.md`](docs/TARGET_PLANE_PAN_TILT.md) – 3-D target-plane geometry, pan/tilt conventions, rotated-angular-spectrum propagation, sampling limits and metadata.
 - [`docs/PARAMETERS.md`](docs/PARAMETERS.md) – complete GUI parameter reference, units, physical meaning and parameter interactions.
 
 ## Requirements
@@ -204,9 +209,11 @@ See [`docs/VORTEX.md`](docs/VORTEX.md) for details.
 
 ### Arbitrary Image (GS)
 
-Gerchberg-Saxton phase retrieval using Fresnel forward/back propagation.
+Gerchberg-Saxton phase retrieval for arbitrary target-intensity images.
 
-Typical uses include arbitrary beam shaping, structured illumination, logos/symbols, custom laser-processing patterns and phase-only holographic target fields.
+With `Target pan = 0` and `Target tilt = 0`, the historical Fresnel forward/back propagation path is retained. With a non-zero pan or tilt, the GS loop propagates between the DOE plane and the physically tilted target plane using a rotated angular spectrum.
+
+Typical uses include arbitrary beam shaping, structured illumination, logos/symbols, custom laser-processing patterns, phase-only holographic target fields and projection onto inclined surfaces.
 
 The physical target width can be controlled with:
 
@@ -241,13 +248,15 @@ Wavelength:           633 nm
 Target z:             10 mm
 GS iterations:        50
 GS target width:      0 um (auto fit)
+Target pan:           0 deg
+Target tilt:          0 deg
 DOE index:            1.52
 Environment index:    1.00
 ```
 
 For larger designs, first verify the result at 256 or 512 pixels and a moderate iteration count.
 
-See [`docs/GERCHBERG_SAXTON.md`](docs/GERCHBERG_SAXTON.md) and [`docs/GS_TARGET_SIZE.md`](docs/GS_TARGET_SIZE.md) for details.
+See [`docs/GERCHBERG_SAXTON.md`](docs/GERCHBERG_SAXTON.md), [`docs/GS_TARGET_SIZE.md`](docs/GS_TARGET_SIZE.md) and [`docs/TARGET_PLANE_PAN_TILT.md`](docs/TARGET_PLANE_PAN_TILT.md) for details.
 
 ## Off-axis target steering
 
@@ -320,6 +329,38 @@ The exported phase map contains the steering ramp. The displayed intensity simul
 
 Target position and target size are independent: for example an 80 um wide GS target can be directed to a physical target coordinate such as `x=100 mm`, `y=100 mm`, `z=350 mm`.
 
+## Target-plane pan / tilt
+
+The target plane can additionally be oriented in 3-D:
+
+```text
+Target pan (deg)
+Target tilt (deg)
+```
+
+`0 / 0 deg` reproduces the historical parallel target plane.
+
+Conventions:
+
+```text
++X = right
++Y = increasing image rows
++Z = from DOE toward target
+positive pan  -> target normal toward +X
+positive tilt -> target normal toward -Y
+rotation order: tilt around X, then pan around Y
+```
+
+Target position and target orientation are independent. In `Target-plane distance` mode, `Target X`, `Target Y` and `Target z` define the **centre** of the target plane, while pan/tilt define its orientation about that centre.
+
+For `Arbitrary Image (GS)`, a non-zero pan or tilt switches the iterative propagation to the tilted-plane solver. The target image is therefore synthesized in the local coordinates of the physical inclined surface, rather than being represented by a perspective-warped image in a parallel plane.
+
+For analytical generator modes, pan/tilt does not change the analytic phase equation itself; it changes the plane on which the simulation preview is evaluated.
+
+The GUI reports the target normal and tilted-plane carrier sampling. Marginal sampling is warned about and an aliased tilted GS configuration is rejected.
+
+See [`docs/TARGET_PLANE_PAN_TILT.md`](docs/TARGET_PLANE_PAN_TILT.md) for the numerical method, geometry and limitations.
+
 ## 16-bit phase-map export
 
 `Save 16-bit Phase PNG` writes a wrapped phase map with unsigned 16-bit grayscale encoding:
@@ -330,7 +371,7 @@ gray ~32768   -> pi rad
 gray 65535    -> approximately 2*pi
 ```
 
-A JSON sidecar records generator, target-size and off-axis parameters where applicable. Focused vortex metadata additionally records vortex charge and focal length.
+A JSON sidecar records generator, target-size, off-axis and target-plane orientation parameters where applicable. Focused vortex metadata additionally records vortex charge and focal length.
 
 ## Relief / GrayScribeX-oriented export
 
@@ -366,7 +407,7 @@ name.png
 name.json
 ```
 
-The PNG is unsigned 16-bit grayscale. The JSON contains optical parameters, refractive indices, physical dimensions, relief range, generator settings, GS target geometry and off-axis geometry where applicable.
+The PNG is unsigned 16-bit grayscale. The JSON contains optical parameters, refractive indices, physical dimensions, relief range, generator settings, GS target geometry, off-axis geometry and target-plane pan/tilt geometry where applicable.
 
 Machine-specific grayscale/exposure calibration remains the responsibility of the lithography system and its software.
 
@@ -374,7 +415,8 @@ Machine-specific grayscale/exposure calibration remains the responsibility of th
 
 ```text
 src/GDoeSII_DOE_Generator.py   standalone GUI
-src/gdoesii_doe.py             DOE generation, propagation and off-axis steering
+src/gdoesii_doe.py             DOE generation, Fresnel propagation and off-axis steering
+src/gdoesii_tilt.py            tilted target-plane geometry and angular-spectrum propagation
 src/gdoesii_grayscribe.py      16-bit relief/height-map export
 config/                        PyInstaller configuration
 tests/                         numerical and export tests
@@ -385,6 +427,7 @@ docs/FRESNEL_ZONE_PLATE.md     binary phase FZP operation and use cases
 docs/VORTEX.md                 vortex modes, focused vortex and use cases
 docs/GERCHBERG_SAXTON.md       arbitrary-image GS operation and use cases
 docs/GS_TARGET_SIZE.md         detailed GS physical target sizing
+docs/TARGET_PLANE_PAN_TILT.md  target-plane orientation and tilted propagation
 docs/PARAMETERS.md             complete parameter reference
 .github/workflows/             Windows CI/EXE build
 CHANGELOG.md                   software modernization and update history

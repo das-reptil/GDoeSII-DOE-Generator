@@ -20,9 +20,11 @@ from gdoesii_doe import (  # noqa: E402
     gerchberg_saxton_phase,
     grating_phase,
     lens_phase,
+    load_target_intensity,
     phase_to_uint16,
     save_phase_png,
     simulate_phase,
+    target_image_geometry,
     vortex_phase,
 )
 from gdoesii_grayscribe import (  # noqa: E402
@@ -68,6 +70,62 @@ class DOEGeneratorTests(unittest.TestCase):
         self.assertEqual(simulation.dtype, np.uint16)
         self.assertGreater(int(np.max(phase_to_uint16(phase))), 0)
         self.assertGreater(int(np.max(simulation)), 0)
+
+    def test_gs_target_geometry_physical_width(self):
+        info = target_image_geometry(
+            source_width_px=200,
+            source_height_px=100,
+            doe_width_px=512,
+            doe_height_px=512,
+            pixel_size_nm=500,
+            target_width_um=80,
+        )
+        self.assertEqual(info["sizing_mode"], "physical-width")
+        self.assertEqual(info["target_width_px"], 160)
+        self.assertEqual(info["target_height_px"], 80)
+        self.assertAlmostEqual(info["actual_width_um"], 80.0, places=12)
+        self.assertAlmostEqual(info["actual_height_um"], 40.0, places=12)
+        self.assertAlmostEqual(info["field_width_um"], 256.0, places=12)
+        self.assertAlmostEqual(info["field_height_um"], 256.0, places=12)
+
+    def test_gs_target_geometry_auto_fit_preserves_aspect_ratio(self):
+        info = target_image_geometry(200, 100, 512, 512, 500, 0)
+        self.assertEqual(info["sizing_mode"], "fit")
+        self.assertIsNone(info["requested_width_um"])
+        self.assertEqual(info["target_width_px"], 512)
+        self.assertEqual(info["target_height_px"], 256)
+        self.assertAlmostEqual(info["actual_width_um"], 256.0, places=12)
+        self.assertAlmostEqual(info["actual_height_um"], 128.0, places=12)
+
+    def test_gs_target_image_is_centered_at_requested_physical_size(self):
+        source_values = np.full((100, 200), 255, dtype=np.uint8)
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "target.png"
+            Image.fromarray(source_values).save(source)
+            target, info = load_target_intensity(
+                source,
+                512,
+                512,
+                pixel_size_nm=500,
+                target_width_um=80,
+                return_info=True,
+            )
+
+        rows, cols = np.where(target > 0)
+        self.assertEqual(target.shape, (512, 512))
+        self.assertEqual(cols.max() - cols.min() + 1, 160)
+        self.assertEqual(rows.max() - rows.min() + 1, 80)
+        self.assertEqual(info["placement_x_px"], 176)
+        self.assertEqual(info["placement_y_px"], 216)
+        self.assertAlmostEqual(info["actual_width_um"], 80.0, places=12)
+        self.assertAlmostEqual(info["actual_height_um"], 40.0, places=12)
+
+    def test_gs_target_width_rejects_target_larger_than_field(self):
+        with self.assertRaises(ValueError):
+            target_image_geometry(200, 100, 512, 512, 500, 300)
+
+        with self.assertRaises(ValueError):
+            target_image_geometry(100, 200, 512, 512, 500, 200)
 
     def test_reference_off_axis_geometry(self):
         info = direction_cosines_from_target_offset(100, 100, 350)

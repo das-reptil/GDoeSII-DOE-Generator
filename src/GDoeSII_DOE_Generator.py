@@ -37,8 +37,7 @@ class App:
     def __init__(self, root):
         self.root = root
         self.root.title(APP_TITLE)
-        self.root.geometry("1180x900")
-        self.root.resizable(False, False)
+        self._configure_window()
         self.phase = None
         self.simulation = None
         self.metadata = None
@@ -47,13 +46,50 @@ class App:
         self.sim_photo = None
         self._build()
 
+    def _configure_window(self):
+        """Choose a useful initial size without exceeding the current screen."""
+        screen_w = max(1, self.root.winfo_screenwidth())
+        screen_h = max(1, self.root.winfo_screenheight())
+
+        # Leave room for window borders/taskbar while preserving the former
+        # 1180 x 900 layout whenever the display has enough space.
+        width = min(1180, max(640, screen_w - 80), screen_w)
+        height = min(900, max(520, screen_h - 120), screen_h)
+        x = max(0, (screen_w - width) // 2)
+        y = max(0, (screen_h - height) // 2)
+
+        self.root.geometry(f"{width}x{height}+{x}+{y}")
+        self.root.minsize(min(700, width), min(500, height))
+        self.root.resizable(True, True)
+
     def _build(self):
-        outer = Frame(self.root, padx=10, pady=10)
-        outer.pack(fill=BOTH, expand=True)
+        shell = Frame(self.root)
+        shell.pack(fill=BOTH, expand=True)
+        shell.rowconfigure(0, weight=1)
+        shell.columnconfigure(0, weight=1)
+
+        self.canvas = Canvas(shell, highlightthickness=0)
+        v_scroll = ttk.Scrollbar(shell, orient=VERTICAL, command=self.canvas.yview)
+        h_scroll = ttk.Scrollbar(shell, orient=HORIZONTAL, command=self.canvas.xview)
+        self.canvas.configure(yscrollcommand=v_scroll.set, xscrollcommand=h_scroll.set)
+
+        self.canvas.grid(row=0, column=0, sticky=NSEW)
+        v_scroll.grid(row=0, column=1, sticky=NS)
+        h_scroll.grid(row=1, column=0, sticky=EW)
+
+        outer = Frame(self.canvas, padx=10, pady=10)
+        self.scroll_content = outer
+        self.canvas_window = self.canvas.create_window((0, 0), window=outer, anchor=NW)
+        outer.bind("<Configure>", self._on_content_configure)
+        self.canvas.bind("<Configure>", self._on_canvas_configure)
+
+        outer.rowconfigure(0, weight=1)
+        outer.columnconfigure(1, weight=1)
+
         left = Frame(outer, padx=10, pady=10, relief=RIDGE, bd=1)
-        left.pack(side=LEFT, fill=Y)
+        left.grid(row=0, column=0, sticky=NSW, padx=(0, 10))
         right = Frame(outer, padx=10, pady=10)
-        right.pack(side=RIGHT, fill=BOTH, expand=True)
+        right.grid(row=0, column=1, sticky=NSEW)
         self.left = left
 
         self.kind = StringVar(value="Lens")
@@ -117,15 +153,24 @@ class App:
         ttk.Label(left, textvariable=self.status, wraplength=280, justify=LEFT).grid(row=row, column=0, columnspan=2, sticky=W, pady=(7, 0))
         left.columnconfigure(1, weight=1)
 
-        title = Frame(right); title.pack(fill=X)
-        ttk.Label(title, text="16-bit phase map", font=("calibri", 14, "bold")).grid(row=0, column=0, padx=(0, 230), sticky=W)
+        title = Frame(right)
+        title.pack(fill=X)
+        title.columnconfigure(0, weight=1)
+        title.columnconfigure(1, weight=1)
+        ttk.Label(title, text="16-bit phase map", font=("calibri", 14, "bold")).grid(row=0, column=0, padx=(0, 15), sticky=W)
         ttk.Label(title, text="Local target-plane simulation", font=("calibri", 14, "bold")).grid(row=0, column=1, sticky=W)
-        images = Frame(right); images.pack(fill=X, pady=10)
+
+        images = Frame(right)
+        images.pack(fill=X, pady=10)
+        images.columnconfigure(0, weight=1)
+        images.columnconfigure(1, weight=1)
         self.phase_label = Label(images, text="Generate a DOE", width=45, height=20, relief=SUNKEN, bd=1)
-        self.phase_label.grid(row=0, column=0, padx=(0, 15))
+        self.phase_label.grid(row=0, column=0, padx=(0, 8), sticky=NSEW)
         self.sim_label = Label(images, text="Simulation preview", width=45, height=20, relief=SUNKEN, bd=1)
-        self.sim_label.grid(row=0, column=1)
-        self.info = Text(right, width=88, height=18); self.info.pack(fill=BOTH, expand=True)
+        self.sim_label.grid(row=0, column=1, padx=(8, 0), sticky=NSEW)
+
+        self.info = Text(right, width=88, height=18)
+        self.info.pack(fill=BOTH, expand=True)
         self._set_info("Generate a phase-only DOE. The exported phase map contains any off-axis steering ramp; the simulation stays centered in local target coordinates.")
 
         for var in (self.theta_x, self.theta_y, self.offset_x, self.offset_y, self.pixel_nm, self.wavelength_nm, self.distance_mm):
@@ -133,6 +178,20 @@ class App:
         for var in (self.wavelength_nm, self.n_doe, self.n_env):
             var.trace_add("write", lambda *_: self._update_relief())
         self._update_offset(); self._update_relief()
+
+    def _on_content_configure(self, _event=None):
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+    def _on_canvas_configure(self, event):
+        # Stretch to fill larger windows, but keep the natural requested size
+        # on smaller windows so the scrollbars can reach every control.
+        req_w = self.scroll_content.winfo_reqwidth()
+        req_h = self.scroll_content.winfo_reqheight()
+        self.canvas.itemconfigure(
+            self.canvas_window,
+            width=max(event.width, req_w),
+            height=max(event.height, req_h),
+        )
 
     def _entry(self, row, text, var):
         ttk.Label(self.left, text=text).grid(row=row, column=0, sticky=W, pady=1)

@@ -87,7 +87,7 @@ class App:
         outer.columnconfigure(1, weight=1)
 
         left = Frame(outer, padx=10, pady=10, relief=RIDGE, bd=1)
-        left.grid(row=0, column=0, sticky=NSW, padx=(0, 10))
+        left.grid(row=0, column=0, sticky=N + S + W, padx=(0, 10))
         right = Frame(outer, padx=10, pady=10)
         right.grid(row=0, column=1, sticky=NSEW)
         self.left = left

@@ -12,6 +12,10 @@ This project is an adapted work derived from **GDoeSII**.
 
 Original public source repository:
 
+https://github.com/raghu1153/GDoeSII
+
+SoftwareX archive repository:
+
 https://github.com/ElsevierSoftwareX/SOFTX_2018_239
 
 Original software publication:
@@ -22,7 +26,7 @@ SoftwareX 9 (2019), 126–131.
 
 https://doi.org/10.1016/j.softx.2019.01.012
 
-The original GDoeSII software is identified by its authors/project pages as licensed under the **Creative Commons Attribution-NonCommercial 3.0 (CC BY-NC 3.0)** license.
+The original GDoeSII software is distributed under the **Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)** license. The original repository contains the corresponding CC BY-NC 4.0 license text.
 
 ## Changes in this project
 
@@ -97,6 +101,6 @@ References to Nanoscribe Quantum X and GrayScribeX describe an intended file/wor
 
 ## License
 
-The adapted project is distributed under **CC BY-NC 3.0**. See `LICENSE` and the Creative Commons legal code:
+The adapted project is distributed under **CC BY-NC 4.0**. See `LICENSE` and the Creative Commons legal code:
 
-https://creativecommons.org/licenses/by-nc/3.0/legalcode
+https://creativecommons.org/licenses/by-nc/4.0/legalcode

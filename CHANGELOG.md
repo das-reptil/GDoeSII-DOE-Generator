@@ -6,6 +6,13 @@ The entries below describe functional and architectural changes in the adapted s
 
 ## 2026-10-03 - Initial public standalone state
 
+### Licensing and attribution
+
+- Aligned the standalone repository with the original GDoeSII software license: **Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)**.
+- Added the original author repository `https://github.com/raghu1153/GDoeSII` as the primary upstream source reference.
+- Retained the Elsevier SoftwareX archive and publication DOI as additional provenance references.
+- Updated `LICENSE`, `README.md`, `NOTICE.md` and `CITATION.cff` consistently.
+
 ### Standalone application
 
 - Split DOE synthesis into a dedicated standalone application: `GDoeSII_DOE_Generator.py`.

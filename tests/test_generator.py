@@ -26,6 +26,7 @@ from gdoesii_doe import (  # noqa: E402
     simulate_phase,
     target_image_geometry,
     vortex_phase,
+    wrap_phase,
 )
 from gdoesii_grayscribe import (  # noqa: E402
     export_grayscribex_normalized,
@@ -43,17 +44,31 @@ class DOEGeneratorTests(unittest.TestCase):
             compile(path.read_text(encoding="utf-8"), str(path), "exec")
 
     def test_analytic_generators(self):
+        focused_vortex = wrap_phase(
+            lens_phase(65, 65, 500, 633, 10)
+            + vortex_phase(65, 65, 500, 1)
+        )
         phases = [
             lens_phase(65, 65, 500, 633, 10),
             grating_phase(65, 65, 500, 20, 30),
             fresnel_zone_plate_phase(65, 65, 500, 633, 10),
             vortex_phase(65, 65, 500, 1),
+            focused_vortex,
         ]
         for phase in phases:
             self.assertEqual(phase.shape, (65, 65))
             self.assertTrue(np.all(np.isfinite(phase)))
             self.assertGreaterEqual(float(np.min(phase)), 0.0)
             self.assertLess(float(np.max(phase)), TWO_PI + 1e-12)
+
+    def test_focused_vortex_combines_lens_and_vortex_phase(self):
+        lens = lens_phase(65, 65, 500, 633, 10)
+        vortex = vortex_phase(65, 65, 500, charge=2)
+        combined = wrap_phase(lens + vortex)
+        self.assertEqual(combined.shape, lens.shape)
+        self.assertTrue(np.allclose(combined, wrap_phase(lens + vortex)))
+        self.assertFalse(np.allclose(combined, lens))
+        self.assertFalse(np.allclose(combined, vortex))
 
     def test_zone_plate_is_binary_phase(self):
         phase = fresnel_zone_plate_phase(65, 65, 500, 633, 10)

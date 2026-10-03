@@ -66,6 +66,7 @@ class App:
         self.angle_deg = DoubleVar(value=0.0)
         self.charge = IntVar(value=1)
         self.iterations = IntVar(value=50)
+        self.target_width_um = DoubleVar(value=0.0)
         self.n_doe = DoubleVar(value=1.52)
         self.n_env = DoubleVar(value=1.0)
         self.offset_mode = StringVar(value="None")
@@ -87,7 +88,7 @@ class App:
             ("Pixel size (nm)", self.pixel_nm), ("Wavelength (nm)", self.wavelength_nm),
             ("Focal / target z (mm)", self.distance_mm), ("Grating period (um)", self.period_um),
             ("Grating angle (deg)", self.angle_deg), ("Vortex charge", self.charge),
-            ("GS iterations", self.iterations),
+            ("GS iterations", self.iterations), ("GS target width (um; 0=fit)", self.target_width_um),
         ):
             row = self._entry(row, label, var)
 
@@ -181,10 +182,12 @@ class App:
         p = dict(width_px=int(self.width.get()), height_px=int(self.height.get()), pixel_size_nm=float(self.pixel_nm.get()), wavelength_nm=float(self.wavelength_nm.get()), distance_mm=float(self.distance_mm.get()))
         if p["width_px"] < 2 or p["height_px"] < 2 or p["pixel_size_nm"] <= 0 or p["wavelength_nm"] <= 0 or p["distance_mm"] <= 0:
             raise ValueError("Width/height must be >=2 and pixel size, wavelength and target z must be positive.")
+        if float(self.target_width_um.get()) < 0:
+            raise ValueError("GS target width must be 0 (auto fit) or greater than 0 um.")
         return p
 
     def _base_phase(self, p):
-        kind = self.kind.get(); sim = None
+        kind = self.kind.get(); sim = None; target_info = None
         if kind == "Lens":
             phase = lens_phase(p["width_px"], p["height_px"], p["pixel_size_nm"], p["wavelength_nm"], p["distance_mm"])
         elif kind == "Grating":
@@ -196,16 +199,23 @@ class App:
         else:
             if not self.target_path:
                 raise ValueError("Select a target image first.")
-            target = load_target_intensity(self.target_path, p["width_px"], p["height_px"])
+            target, target_info = load_target_intensity(
+                self.target_path,
+                p["width_px"],
+                p["height_px"],
+                pixel_size_nm=p["pixel_size_nm"],
+                target_width_um=self.target_width_um.get(),
+                return_info=True,
+            )
             phase, sim = gerchberg_saxton_phase(target, p["pixel_size_nm"], p["wavelength_nm"], p["distance_mm"], iterations=self.iterations.get(), seed=0, progress_callback=self._progress)
-        return wrap_phase(phase), sim
+        return wrap_phase(phase), sim, target_info
 
     def _progress(self, current, total):
         self.progress.set(100.0 * current / total); self.status.set("Gerchberg-Saxton iteration {} / {}".format(current, total)); self.root.update_idletasks()
 
     def _generate(self):
         try:
-            p = self._params(); self.progress.set(0); base, sim = self._base_phase(p)
+            p = self._params(); self.progress.set(0); base, sim, target_info = self._base_phase(p)
             phase, _, offset = apply_phase_offset(base, p["pixel_size_nm"], p["wavelength_nm"], offset_mode=self._mode(), theta_x_deg=self.theta_x.get(), theta_y_deg=self.theta_y.get(), offset_x_mm=self.offset_x.get(), offset_y_mm=self.offset_y.get(), distance_mm=p["distance_mm"])
             if sim is None:
                 sim = simulate_phase(base, p["pixel_size_nm"], p["wavelength_nm"], p["distance_mm"])
@@ -213,7 +223,12 @@ class App:
             self.metadata = {"type": self.kind.get(), **p, "offset": offset}
             if self.kind.get() == "Grating": self.metadata.update(grating_period_um=float(self.period_um.get()), grating_angle_deg=float(self.angle_deg.get()))
             if self.kind.get() == "Vortex": self.metadata["vortex_charge"] = int(self.charge.get())
-            if self.kind.get() == "Arbitrary Image (GS)": self.metadata.update(gs_iterations=int(self.iterations.get()), target_file=os.path.basename(self.target_path))
+            if self.kind.get() == "Arbitrary Image (GS)":
+                self.metadata.update(
+                    gs_iterations=int(self.iterations.get()),
+                    target_file=os.path.basename(self.target_path),
+                    target_geometry=target_info,
+                )
             self.phase_photo = preview_image(phase_to_uint16(phase)); self.sim_photo = preview_image(sim)
             self.phase_label.config(image=self.phase_photo, text="", width=self.phase_photo.width(), height=self.phase_photo.height())
             self.sim_label.config(image=self.sim_photo, text="", width=self.sim_photo.width(), height=self.sim_photo.height())
@@ -227,6 +242,18 @@ class App:
                 "Offset mode: {}".format(offset["mode"]),
                 "Theta X/Y: {:.4f} / {:.4f} deg; total: {:.4f} deg".format(offset["theta_x_deg"], offset["theta_y_deg"], offset["total_angle_deg"]),
             ]
+            if target_info is not None:
+                requested = target_info["requested_width_um"]
+                mode_text = "auto fit" if requested is None else "requested {:.3f} um width".format(requested)
+                lines.append(
+                    "GS target: {:.3f} x {:.3f} um ({} x {} px; {})".format(
+                        target_info["actual_width_um"],
+                        target_info["actual_height_um"],
+                        target_info["target_width_px"],
+                        target_info["target_height_px"],
+                        mode_text,
+                    )
+                )
             if offset["mode"] == "target-plane distance": lines.append("Target X/Y: {:.4f} / {:.4f} mm; ray: {:.4f} mm".format(offset["offset_x_mm"], offset["offset_y_mm"], offset["ray_length_mm"]))
             if offset["period_diag_um"] is not None: lines.append("Ramp diag: {:.4f} um; {:.3f} px/period".format(offset["period_diag_um"], offset["pixels_per_period_diag"]))
             if offset["sampling_warning"]: lines.append("WARNING: " + offset["sampling_warning"])

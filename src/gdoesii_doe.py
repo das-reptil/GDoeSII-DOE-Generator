@@ -192,11 +192,13 @@ def offset_sampling_info(sx, sy, wavelength_nm, pixel_size_nm):
     wavelength_um = wavelength_nm / 1000.0
     pixel_um = pixel_size_nm / 1000.0
     transverse = math.hypot(float(sx), float(sy))
+
     def metrics(component):
         if abs(component) < 1e-15:
             return None, None
         period_um = wavelength_um / abs(component)
         return period_um, period_um / pixel_um
+
     period_x_um, pixels_per_period_x = metrics(float(sx))
     period_y_um, pixels_per_period_y = metrics(float(sy))
     period_diag_um, pixels_per_period_diag = metrics(transverse)
@@ -251,20 +253,124 @@ def apply_phase_offset(phase_rad, pixel_size_nm, wavelength_nm, offset_mode="non
     return wrap_phase(phase + ramp), ramp, info
 
 
-def load_target_intensity(file_name, width_px, height_px):
+def target_image_geometry(source_width_px, source_height_px, doe_width_px, doe_height_px, pixel_size_nm, target_width_um=0.0):
+    """Calculate centered target-image dimensions in the sampled target plane.
+
+    A target_width_um of 0 keeps the legacy behaviour and fits the image as
+    large as possible into the complete target-plane calculation window.
+    Positive values request a physical target width; height follows the source
+    image aspect ratio. The resulting dimensions are quantized to whole pixels.
+    """
+    doe_width_px, doe_height_px = _validate_shape(doe_width_px, doe_height_px)
+    source_width_px = int(source_width_px)
+    source_height_px = int(source_height_px)
+    if source_width_px < 1 or source_height_px < 1:
+        raise ValueError("Target image width and height must be at least 1 pixel.")
+
+    pixel_size_nm = float(pixel_size_nm)
+    if pixel_size_nm <= 0:
+        raise ValueError("Pixel size must be greater than 0 nm.")
+    pixel_um = pixel_size_nm / 1000.0
+    field_width_um = doe_width_px * pixel_um
+    field_height_um = doe_height_px * pixel_um
+    requested_width_um = float(target_width_um or 0.0)
+    if requested_width_um < 0:
+        raise ValueError("GS target width must be 0 (auto fit) or greater than 0 um.")
+
+    if requested_width_um == 0.0:
+        scale = min(doe_width_px / source_width_px, doe_height_px / source_height_px)
+        target_width_px = max(1, min(doe_width_px, int(math.floor(source_width_px * scale))))
+        target_height_px = max(1, min(doe_height_px, int(math.floor(source_height_px * scale))))
+        sizing_mode = "fit"
+    else:
+        requested_height_um = requested_width_um * source_height_px / source_width_px
+        if requested_width_um > field_width_um + 1e-12:
+            raise ValueError(
+                "Requested GS target width {:.3f} um exceeds target-plane width {:.3f} um.".format(
+                    requested_width_um, field_width_um
+                )
+            )
+        if requested_height_um > field_height_um + 1e-12:
+            raise ValueError(
+                "Requested GS target height {:.3f} um exceeds target-plane height {:.3f} um.".format(
+                    requested_height_um, field_height_um
+                )
+            )
+        target_width_px = max(1, int(round(requested_width_um / pixel_um)))
+        target_height_px = max(1, int(round(requested_height_um / pixel_um)))
+        if target_width_px > doe_width_px or target_height_px > doe_height_px:
+            raise ValueError("Requested GS target does not fit into the sampled target plane after pixel quantization.")
+        sizing_mode = "physical-width"
+
+    actual_width_um = target_width_px * pixel_um
+    actual_height_um = target_height_px * pixel_um
+    return {
+        "sizing_mode": sizing_mode,
+        "source_width_px": source_width_px,
+        "source_height_px": source_height_px,
+        "requested_width_um": requested_width_um if requested_width_um > 0 else None,
+        "target_width_px": target_width_px,
+        "target_height_px": target_height_px,
+        "actual_width_um": actual_width_um,
+        "actual_height_um": actual_height_um,
+        "field_width_um": field_width_um,
+        "field_height_um": field_height_um,
+        "pixel_size_um": pixel_um,
+    }
+
+
+def load_target_intensity(file_name, width_px, height_px, pixel_size_nm=None, target_width_um=0.0, return_info=False):
     width_px, height_px = _validate_shape(width_px, height_px)
+    requested_width_um = float(target_width_um or 0.0)
+    if requested_width_um < 0:
+        raise ValueError("GS target width must be 0 (auto fit) or greater than 0 um.")
+    if requested_width_um > 0 and pixel_size_nm is None:
+        raise ValueError("Pixel size is required when a physical GS target width is specified.")
+
     with Image.open(file_name) as source:
         image = source.convert("L")
-        contained = ImageOps.contain(image, (width_px, height_px), method=Image.Resampling.LANCZOS)
+        if pixel_size_nm is not None:
+            info = target_image_geometry(
+                image.width,
+                image.height,
+                width_px,
+                height_px,
+                pixel_size_nm,
+                requested_width_um,
+            )
+            target_size = (info["target_width_px"], info["target_height_px"])
+            resized = image.resize(target_size, Image.Resampling.LANCZOS)
+        else:
+            resized = ImageOps.contain(image, (width_px, height_px), method=Image.Resampling.LANCZOS)
+            info = {
+                "sizing_mode": "fit",
+                "source_width_px": image.width,
+                "source_height_px": image.height,
+                "requested_width_um": None,
+                "target_width_px": resized.width,
+                "target_height_px": resized.height,
+                "actual_width_um": None,
+                "actual_height_um": None,
+                "field_width_um": None,
+                "field_height_um": None,
+                "pixel_size_um": None,
+            }
+
         canvas = Image.new("L", (width_px, height_px), 0)
-        x = (width_px - contained.width) // 2
-        y = (height_px - contained.height) // 2
-        canvas.paste(contained, (x, y))
+        x = (width_px - resized.width) // 2
+        y = (height_px - resized.height) // 2
+        canvas.paste(resized, (x, y))
         data = np.asarray(canvas, dtype=np.float64) / 255.0
+        info["placement_x_px"] = x
+        info["placement_y_px"] = y
+
     maximum = float(np.max(data)) if data.size else 0.0
     if maximum <= 0:
         raise ValueError("Target image contains no non-zero intensity.")
-    return np.clip(data / maximum, 0.0, 1.0)
+    normalized = np.clip(data / maximum, 0.0, 1.0)
+    if return_info:
+        return normalized, info
+    return normalized
 
 
 def gerchberg_saxton_phase(target_intensity, pixel_size_nm, wavelength_nm, distance_mm, iterations=50, seed=0, progress_callback=None):

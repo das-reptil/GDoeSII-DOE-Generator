@@ -48,10 +48,13 @@ It affects:
 - Fresnel propagation,
 - grating and lens sampling,
 - off-axis phase-ramp sampling,
+- tilted target-plane sampling,
 - the physical size of an Arbitrary Image target,
 - the physical dimensions recorded in export metadata.
 
 For off-axis designs the program reports the number of DOE pixels per steering-ramp period. A diagonal ramp below 3 pixels/period is flagged as marginal and below 2 pixels/period as aliasing.
+
+For non-zero target pan/tilt, the GUI also reports a target-plane carrier sampling estimate. Configurations at or beyond Nyquist are rejected for the tilted GS solver.
 
 ## Wavelength (nm)
 
@@ -62,6 +65,7 @@ It affects:
 - lens phase,
 - Fresnel zone plate phase,
 - Fresnel propagation,
+- tilted target-plane propagation,
 - focused Vortex + Lens designs,
 - off-axis steering ramp,
 - phase-to-relief conversion for GrayScribeX-oriented export.
@@ -75,14 +79,14 @@ This field is shared by several generator modes:
 - `Lens` – focal length.
 - `Fresnel Zone Plate` – focal length.
 - `Vortex + Lens` – focal length of the combined focused-vortex DOE.
-- `Arbitrary Image (GS)` – propagation distance from DOE to target plane.
+- `Arbitrary Image (GS)` – axial coordinate of the target-plane centre.
 - `Target-plane distance` off-axis mode – axial target coordinate `z`.
 
 The current GUI requires a positive value.
 
 For `Vortex + Lens`, the local simulation is evaluated at this focal distance. For a suitable input field, the resulting focal-plane intensity is expected to show the characteristic dark center and ring-like / donut distribution of a focused optical vortex.
 
-For a GS target, the target image is synthesized in the local target plane at this propagation distance. Off-axis steering is then added as a separate phase ramp.
+For a GS target with `Target pan = 0` and `Target tilt = 0`, the target image is synthesized in the historical parallel plane at this propagation distance. For a tilted target, the same value is the Z coordinate of the target-plane centre.
 
 ## Grating period (um)
 
@@ -243,6 +247,8 @@ phi_export = wrap(phi_lens + phi_vortex + phi_steering)
 
 This can direct a focused vortex spot away from the optical axis.
 
+For a tilted GS target in `Target-plane distance` mode, target translation is included in the tilted propagation itself so the steering ramp is not applied a second time.
+
 ## Theta X (deg) / Theta Y (deg)
 
 Used in `Angle` off-axis mode.
@@ -255,7 +261,7 @@ The GUI also reports the resulting total steering angle and steering-ramp sampli
 
 Used in `Target-plane distance` mode.
 
-These define the physical lateral target position at the selected axial distance `z`.
+These define the physical lateral target-plane centre at the selected axial coordinate `z`.
 
 The program reports:
 
@@ -265,6 +271,41 @@ The program reports:
 - diagonal steering-ramp period,
 - pixels per steering-ramp period,
 - sampling warnings when appropriate.
+
+When target pan/tilt is non-zero, these values define the **centre of the tilted plane**, not merely a point to which an otherwise parallel plane is steered.
+
+## Target pan (deg) / Target tilt (deg)
+
+These parameters orient the target plane in 3-D.
+
+- `Target pan (deg)` rotates the target plane around the global Y axis.
+- `Target tilt (deg)` rotates it around the global X axis.
+- `0 / 0 deg` reproduces the historical parallel-plane behaviour.
+
+Coordinate convention:
+
+```text
++X = right
++Y = increasing image rows
++Z = from DOE toward target
+```
+
+Sign convention:
+
+```text
+positive pan  -> target normal turns toward +X
+positive tilt -> target normal turns toward -Y
+```
+
+Rotation order is tilt around X followed by pan around Y.
+
+For `Arbitrary Image (GS)`, a non-zero pan or tilt switches the iterative forward/back propagation to the rotated-angular-spectrum tilted-plane solver. The imported target image is therefore interpreted in the local coordinates of the tilted physical plane rather than being perspective-warped in a parallel plane.
+
+For analytical modes (`Lens`, `Grating`, `Fresnel Zone Plate`, `Vortex`, `Vortex + Lens`), the analytic phase definition is not changed by pan/tilt. If pan/tilt is non-zero, the simulation preview is evaluated on the tilted plane.
+
+The GUI reports the target-plane normal and carrier sampling. A tilted GS configuration that exceeds the supported Nyquist sampling is rejected.
+
+For details, equations, metadata and numerical-method notes see [`TARGET_PLANE_PAN_TILT.md`](TARGET_PLANE_PAN_TILT.md).
 
 ## DOE index
 
@@ -322,7 +363,7 @@ gray ~32768   -> pi rad
 gray 65535    -> approximately 2*pi
 ```
 
-A JSON sidecar stores generator, sampling and off-axis parameters. For GS targets it also stores the requested and actual target geometry. For `Vortex + Lens` it stores the vortex charge, focal length and the combined `lens + vortex` phase type.
+A JSON sidecar stores generator, sampling and off-axis parameters. For GS targets it also stores the requested and actual target geometry. When pan/tilt is used it additionally stores target-plane orientation, basis/normal vectors and, for GS image targets, 3-D corner coordinates. For `Vortex + Lens` it stores the vortex charge, focal length and the combined `lens + vortex` phase type.
 
 ## Export GrayScribeX
 
@@ -341,7 +382,8 @@ The export includes, where applicable:
 - generator parameters,
 - Vortex charge and focused-vortex focal length,
 - GS target geometry,
-- off-axis target geometry and steering sampling.
+- off-axis target geometry and steering sampling,
+- target-plane centre, pan/tilt, basis vectors, normal and sampling information.
 
 The generator provides the desired relative physical topography. Machine-specific grayscale-to-exposure calibration remains the responsibility of GrayScribeX / the lithography system.
 
@@ -351,6 +393,8 @@ Several parameters should be considered together rather than independently:
 
 - **Width/height + pixel size** determine the physical DOE aperture and target calculation field.
 - **Pixel size + wavelength + off-axis angle** determine whether the steering ramp is adequately sampled.
+- **Pixel size + wavelength + target pan/tilt** determine whether the tilted-plane angular-spectrum carrier is adequately sampled.
+- **Target X/Y/Z + pan/tilt** define the complete 3-D target-plane pose.
 - **Pixel size + GS target width** determine the number of raster pixels across the requested target.
 - **Wavelength + DOE index + environment index** determine the required physical relief height.
 - **Target z + DOE aperture + wavelength** influence the spatial scale and quality achievable in Fresnel propagation.

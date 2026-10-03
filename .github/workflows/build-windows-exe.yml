@@ -1,0 +1,51 @@
+name: Build Windows EXE
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "config/**"
+      - "requirements.txt"
+      - ".github/workflows/build-windows-exe.yml"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Run tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Build EXE
+        run: python -m PyInstaller --clean --noconfirm config\GDoeSII_DOE_Generator.spec
+
+      - name: Verify EXE
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "dist\GDoeSII_DOE_Generator.exe")) {
+            throw "dist\GDoeSII_DOE_Generator.exe was not created"
+          }
+          Get-Item "dist\GDoeSII_DOE_Generator.exe" | Format-List FullName,Length,LastWriteTime
+
+      - name: Upload Windows EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: GDoeSII-DOE-Generator-Windows-x64
+          path: dist/GDoeSII_DOE_Generator.exe
+          if-no-files-found: error

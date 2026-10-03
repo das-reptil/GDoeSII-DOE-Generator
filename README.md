@@ -33,6 +33,10 @@ This project is derived from **GDoeSII**, originally developed by:
 
 Original public source repository:
 
+https://github.com/raghu1153/GDoeSII
+
+SoftwareX archive repository:
+
 https://github.com/ElsevierSoftwareX/SOFTX_2018_239
 
 Associated publication:
@@ -41,7 +45,7 @@ Associated publication:
 
 DOI: https://doi.org/10.1016/j.softx.2019.01.012
 
-The original software is distributed under the **Creative Commons Attribution-NonCommercial 3.0 (CC BY-NC 3.0)** license. This repository retains that license for the adapted work. See `LICENSE` and `NOTICE.md`.
+The original software is distributed under the **Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)** license. This repository retains that license for the adapted work. See `LICENSE` and `NOTICE.md`.
 
 This standalone version contains substantial modifications and extensions, including Python 3 modernization, a dedicated DOE-synthesis engine, Gerchberg-Saxton synthesis, 16-bit output, refractive-index-based relief mapping, GrayScribeX-oriented export and off-axis target steering.
 
@@ -289,14 +293,14 @@ NOTICE.md                      origin, attribution and modification notice
 
 ## License
 
-Code in this adapted project is distributed under **CC BY-NC 3.0** in accordance with the original GDoeSII software license.
+Code in this adapted project is distributed under **CC BY-NC 4.0** in accordance with the original GDoeSII software license.
 
 See:
 
 - `LICENSE`
 - `NOTICE.md`
 
-Creative Commons legal code: https://creativecommons.org/licenses/by-nc/3.0/legalcode
+Creative Commons legal code: https://creativecommons.org/licenses/by-nc/4.0/legalcode
 
 ## Citation
 

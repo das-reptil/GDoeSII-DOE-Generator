@@ -82,9 +82,14 @@ The complete development and update history is documented in [`CHANGELOG.md`](CH
 
 ## Documentation
 
-- [`docs/PARAMETERS.md`](docs/PARAMETERS.md) – complete GUI parameter reference, units, physical meaning and parameter interactions.
-- [`docs/GS_TARGET_SIZE.md`](docs/GS_TARGET_SIZE.md) – detailed description of physical target sizing for Arbitrary Image / Gerchberg-Saxton designs.
+- [`docs/GENERATORS.md`](docs/GENERATORS.md) – overview of all generator modes and guidance on choosing the appropriate mode.
+- [`docs/LENS.md`](docs/LENS.md) – lens phase, focusing use cases, off-axis focusing, chromatic behavior and paraxial-model limitations.
+- [`docs/GRATING.md`](docs/GRATING.md) – blazed grating principle, diffraction/beam-steering use cases, angle convention and sampling considerations.
+- [`docs/FRESNEL_ZONE_PLATE.md`](docs/FRESNEL_ZONE_PLATE.md) – binary phase FZP operation, fabrication depth, use cases and outer-zone sampling limits.
 - [`docs/VORTEX.md`](docs/VORTEX.md) – Vortex and focused Vortex + Lens operation, use cases, example settings and limitations.
+- [`docs/GERCHBERG_SAXTON.md`](docs/GERCHBERG_SAXTON.md) – arbitrary-image GS synthesis, target preparation, convergence, use cases and limitations.
+- [`docs/GS_TARGET_SIZE.md`](docs/GS_TARGET_SIZE.md) – detailed physical target sizing for Arbitrary Image / Gerchberg-Saxton designs.
+- [`docs/PARAMETERS.md`](docs/PARAMETERS.md) – complete GUI parameter reference, units, physical meaning and parameter interactions.
 
 ## Requirements
 
@@ -138,15 +143,27 @@ GDoeSII-DOE-Generator-Windows-x64
 
 ### Lens
 
-Continuous wrapped quadratic phase profile.
+Continuous wrapped quadratic phase profile for diffractive focusing.
+
+Typical uses include compact focusing, micro-optics, detector/fiber illumination, laser processing and off-axis focal spots.
+
+See [`docs/LENS.md`](docs/LENS.md).
 
 ### Grating
 
 Continuous `0 ... 2π` blazed phase ramp with configurable period and angle.
 
+Typical uses include beam steering, diffraction-order control, alignment/calibration and Fourier-optics experiments.
+
+See [`docs/GRATING.md`](docs/GRATING.md).
+
 ### Fresnel Zone Plate
 
-Binary `0 / π` phase zones.
+Binary `0 / π` phase zones for diffractive focusing.
+
+Typical uses include simple binary fabrication, compact focusing and comparison of binary versus continuous phase optics.
+
+See [`docs/FRESNEL_ZONE_PLATE.md`](docs/FRESNEL_ZONE_PLATE.md).
 
 ### Vortex
 
@@ -189,6 +206,8 @@ See [`docs/VORTEX.md`](docs/VORTEX.md) for details.
 
 Gerchberg-Saxton phase retrieval using Fresnel forward/back propagation.
 
+Typical uses include arbitrary beam shaping, structured illumination, logos/symbols, custom laser-processing patterns and phase-only holographic target fields.
+
 The physical target width can be controlled with:
 
 ```text
@@ -228,7 +247,7 @@ Environment index:    1.00
 
 For larger designs, first verify the result at 256 or 512 pixels and a moderate iteration count.
 
-See [`docs/GS_TARGET_SIZE.md`](docs/GS_TARGET_SIZE.md) for details.
+See [`docs/GERCHBERG_SAXTON.md`](docs/GERCHBERG_SAXTON.md) and [`docs/GS_TARGET_SIZE.md`](docs/GS_TARGET_SIZE.md) for details.
 
 ## Off-axis target steering
 
@@ -359,9 +378,14 @@ src/gdoesii_doe.py             DOE generation, propagation and off-axis steering
 src/gdoesii_grayscribe.py      16-bit relief/height-map export
 config/                        PyInstaller configuration
 tests/                         numerical and export tests
-docs/PARAMETERS.md             complete parameter reference
-docs/GS_TARGET_SIZE.md         detailed GS physical target sizing
+docs/GENERATORS.md             generator overview and mode selection
+docs/LENS.md                   lens operation and use cases
+docs/GRATING.md                grating operation and use cases
+docs/FRESNEL_ZONE_PLATE.md     binary phase FZP operation and use cases
 docs/VORTEX.md                 vortex modes, focused vortex and use cases
+docs/GERCHBERG_SAXTON.md       arbitrary-image GS operation and use cases
+docs/GS_TARGET_SIZE.md         detailed GS physical target sizing
+docs/PARAMETERS.md             complete parameter reference
 .github/workflows/             Windows CI/EXE build
 CHANGELOG.md                   software modernization and update history
 NOTICE.md                      origin, attribution and modification notice

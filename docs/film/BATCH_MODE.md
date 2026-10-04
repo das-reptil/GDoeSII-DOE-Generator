@@ -1,5 +1,7 @@
 # GS film batch mode
 
+For the complete user-facing creation sequence, see [`GENERATION_WORKFLOW.md`](GENERATION_WORKFLOW.md).
+
 ## Input
 
 The batch GUI supports two input modes.
@@ -27,7 +29,12 @@ A source image can be converted into an evenly sampled vertical-axis rotation be
 
 For a 48-frame full rotation the nominal angle increment is `7.5 deg`.
 
-The default `black/red bright, white dark` mapping is intended for the current POF logo workflow. It maps black and saturated red source features to high target intensity while suppressing white/light areas. The generated monochromatic target frames are written to `frames_raw/` together with `frames.json` metadata.
+Two generic target-intensity mappings are available:
+
+- `grayscale as intensity` – bright source pixels become bright target pixels.
+- `invert grayscale` – dark source pixels become bright target pixels.
+
+The generated monochromatic target frames are written to `frames_raw/` together with `frames.json` metadata.
 
 Exactly edge-on views at 90 and 270 degrees make the projective transformation singular. They are rendered with a very small 0.15-degree numerical offset while retaining the exact nominal frame angle in metadata.
 

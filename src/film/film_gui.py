@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from tkinter import BOTH, END, HORIZONTAL, LEFT, RIGHT, Tk, Toplevel, filedialog, messagebox, ttk
+from tkinter import BOTH, END, HORIZONTAL, LEFT, RIGHT, VERTICAL, Canvas, Tk, Toplevel, filedialog, messagebox, ttk
 from tkinter.scrolledtext import ScrolledText
 
 from .film_batch import discover_frames, run_batch
@@ -28,12 +28,43 @@ class FilmBatchApp:
         x = max(0, (screen_w - width) // 2)
         y = max(0, (screen_h - height) // 2)
         self.root.geometry(f"{width}x{height}+{x}+{y}")
-        self.root.minsize(min(720, width), min(600, height))
+        self.root.minsize(min(640, width), min(480, height))
         self.root.resizable(True, True)
 
     def _build(self):
-        outer = ttk.Frame(self.root, padding=10)
-        outer.pack(fill=BOTH, expand=True)
+        # The complete film GUI lives in a scrollable canvas. This keeps every
+        # control reachable on small/high-DPI displays while still stretching
+        # the content to use wider windows when space is available.
+        container = ttk.Frame(self.root)
+        container.pack(fill=BOTH, expand=True)
+        container.rowconfigure(0, weight=1)
+        container.columnconfigure(0, weight=1)
+
+        self.scroll_canvas = Canvas(container, highlightthickness=0)
+        v_scroll = ttk.Scrollbar(container, orient=VERTICAL, command=self.scroll_canvas.yview)
+        h_scroll = ttk.Scrollbar(container, orient=HORIZONTAL, command=self.scroll_canvas.xview)
+        self.scroll_canvas.configure(
+            yscrollcommand=v_scroll.set,
+            xscrollcommand=h_scroll.set,
+        )
+
+        self.scroll_canvas.grid(row=0, column=0, sticky="nsew")
+        v_scroll.grid(row=0, column=1, sticky="ns")
+        h_scroll.grid(row=1, column=0, sticky="ew")
+
+        outer = ttk.Frame(self.scroll_canvas, padding=10)
+        self.scroll_content = outer
+        self.scroll_window = self.scroll_canvas.create_window(
+            (0, 0), window=outer, anchor="nw"
+        )
+        self.scroll_min_width = 900
+        outer.bind("<Configure>", self._on_scroll_content_configure)
+        self.scroll_canvas.bind("<Configure>", self._on_scroll_canvas_configure)
+        self.root.bind("<MouseWheel>", self._on_mousewheel, add="+")
+        self.root.bind("<Shift-MouseWheel>", self._on_shift_mousewheel, add="+")
+        self.root.bind("<Button-4>", self._on_linux_scroll_up, add="+")
+        self.root.bind("<Button-5>", self._on_linux_scroll_down, add="+")
+
         outer.columnconfigure(1, weight=1)
 
         ttk.Label(outer, text="Input mode").grid(row=0, column=0, sticky="w", padx=(0, 6), pady=2)
@@ -161,12 +192,57 @@ class FilmBatchApp:
         self.status.grid(row=12, column=0, columnspan=3, sticky="w", pady=(4, 4))
         self.log = ScrolledText(outer, height=8, wrap="word")
         self.log.grid(row=13, column=0, columnspan=3, sticky="nsew")
-        outer.rowconfigure(13, weight=1)
 
         for entry in (self.width, self.height, self.pixel_nm, self.wavelength_nm, self.distance_mm, self.target_width_mm):
             entry.bind("<KeyRelease>", lambda _event: self._update_projection_info())
         self.propagation_mode.bind("<<ComboboxSelected>>", lambda _event: self._update_projection_info())
         self._update_projection_info()
+
+        # Capture the natural requested width once the controls exist. Narrower
+        # windows then expose the horizontal scrollbar instead of clipping.
+        self.root.update_idletasks()
+        self.scroll_min_width = max(self.scroll_min_width, outer.winfo_reqwidth())
+        self._sync_scroll_content_width()
+
+    def _on_scroll_content_configure(self, _event=None):
+        self._sync_scroll_content_width()
+        self.scroll_canvas.configure(scrollregion=self.scroll_canvas.bbox("all"))
+
+    def _on_scroll_canvas_configure(self, _event=None):
+        self._sync_scroll_content_width()
+        self.scroll_canvas.configure(scrollregion=self.scroll_canvas.bbox("all"))
+
+    def _sync_scroll_content_width(self):
+        if not hasattr(self, "scroll_canvas"):
+            return
+        viewport_width = max(1, self.scroll_canvas.winfo_width())
+        requested_width = max(self.scroll_min_width, self.scroll_content.winfo_reqwidth())
+        target_width = max(viewport_width, requested_width)
+        current_width = float(self.scroll_canvas.itemcget(self.scroll_window, "width") or 0)
+        if abs(current_width - target_width) > 1.0:
+            self.scroll_canvas.itemconfigure(self.scroll_window, width=target_width)
+
+    def _on_mousewheel(self, event):
+        if hasattr(self, "log") and event.widget is self.log:
+            return
+        if event.delta:
+            direction = -1 if event.delta > 0 else 1
+            self.scroll_canvas.yview_scroll(direction * 3, "units")
+
+    def _on_shift_mousewheel(self, event):
+        if event.delta:
+            direction = -1 if event.delta > 0 else 1
+            self.scroll_canvas.xview_scroll(direction * 3, "units")
+
+    def _on_linux_scroll_up(self, event):
+        if hasattr(self, "log") and event.widget is self.log:
+            return
+        self.scroll_canvas.yview_scroll(-3, "units")
+
+    def _on_linux_scroll_down(self, event):
+        if hasattr(self, "log") and event.widget is self.log:
+            return
+        self.scroll_canvas.yview_scroll(3, "units")
 
     def _path_row(self, parent, row, text, entry, command):
         ttk.Label(parent, text=text).grid(row=row, column=0, sticky="w", padx=(0, 6), pady=2)

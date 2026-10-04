@@ -36,7 +36,7 @@ jobs:
         run: python -m PyInstaller --clean --noconfirm config\GDoeSII_DOE_Generator.spec
 
       - name: Build Film GS Batch EXE
-        run: python -m PyInstaller --clean --noconfirm config\GDoeSII_Film_GS_Batch.spec
+        run: python -m PyInstaller --clean --noconfirm config\film\GDoeSII_Film_GS_Batch.spec
 
       - name: Verify EXEs
         shell: pwsh

@@ -39,25 +39,48 @@ The film GUI exposes only parameters relevant to arbitrary-image GS synthesis:
 - DOE pixel size,
 - wavelength,
 - target z,
-- GS target width (`0 = fit`),
+- target width in millimetres (`0 = fit`),
+- propagation mode,
 - GS iterations and seed,
 - target X/Y,
 - target pan / tilt.
 
 There is deliberately no DOE-type selector in this application.
 
+## Propagation modes
+
+### Physical projection
+
+This is the default film mode. It uses a reciprocal single-FFT Fresnel transform with different source- and target-plane sampling. The target pitch is derived from
+
+```text
+dx_target = lambda * z / (N * dx_DOE)
+```
+
+so large physical projected targets can be represented directly.
+
+For generated yaw frames, `frames.json` supplies the front-facing reference width. This means a 50 mm target width applies to the intended front-facing image rather than to the surrounding dark frame canvas.
+
+Physical projection currently requires `pan = 0` and `tilt = 0`.
+
+### Same sampling
+
+This preserves the historical GS propagation and can be used for compatibility, small target fields and the current tilted-plane GS calculation.
+
+See [`PHYSICAL_PROJECTION.md`](PHYSICAL_PROJECTION.md).
+
 ## Target position and pan/tilt
 
-For a parallel target plane, a non-zero X/Y target position is implemented using the existing off-axis steering phase ramp while brightness statistics remain evaluated in local target coordinates.
+For a parallel target plane, a non-zero X/Y target position is represented by the exported off-axis steering phase ramp while brightness statistics remain evaluated in local target coordinates.
 
-For a tilted target plane, X/Y translation and pan/tilt are handled by the tilted-plane GS propagation.
+For a tilted target plane in Same sampling mode, X/Y translation and pan/tilt are handled by the tilted-plane GS propagation.
 
 ## Per-frame processing
 
 For every frame the batch performs:
 
 1. load and grayscale-normalize the target image,
-2. place it in the GS target calculation field,
+2. place it on the selected physical or same-sampling target grid,
 3. calculate an independent GS phase DOE,
 4. add flat-plane off-axis steering when required,
 5. simulate the reconstructed field in local target coordinates,
@@ -69,6 +92,8 @@ For every frame the batch performs:
 ## Reproducibility
 
 The complete GS batch settings are written to `film_config.json`. Generated yaw frames additionally have `frames_raw/frames.json`. The GS random seed is explicit, making repeated calculations with the same software and settings deterministic.
+
+`summary.json` records the selected propagation mode and the derived physical target sampling where applicable.
 
 ## Performance
 

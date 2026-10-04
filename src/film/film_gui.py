@@ -93,7 +93,7 @@ class FilmBatchApp:
         self.camera_distance = self._var_entry(generation, 1, 2, "Perspective distance", "4.0")
         ttk.Label(generation, text="Intensity mapping").grid(row=2, column=0, sticky="w", padx=(0, 4), pady=2)
         self.mapping = ttk.Combobox(generation, state="readonly", values=MAPPING_MODES)
-        self.mapping.set("black/red bright, white dark")
+        self.mapping.set("invert grayscale")
         self.mapping.grid(row=2, column=1, columnspan=3, sticky="ew", pady=2)
 
         note = (

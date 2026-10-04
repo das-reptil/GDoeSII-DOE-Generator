@@ -6,6 +6,7 @@ from tkinter.scrolledtext import ScrolledText
 from .film_batch import discover_frames, run_batch
 from .film_config import FilmConfig
 from .frame_analysis import analyze_frame, write_csv
+from .frame_generation import MAPPING_MODES, generate_yaw_frames
 
 
 APP_TITLE = "GDoeSII Film / GS Batch"
@@ -21,12 +22,12 @@ class FilmBatchApp:
     def _configure_window(self):
         screen_w = max(1, self.root.winfo_screenwidth())
         screen_h = max(1, self.root.winfo_screenheight())
-        width = min(920, max(700, screen_w - 100), screen_w)
-        height = min(860, max(560, screen_h - 120), screen_h)
+        width = min(980, max(720, screen_w - 100), screen_w)
+        height = min(920, max(600, screen_h - 120), screen_h)
         x = max(0, (screen_w - width) // 2)
         y = max(0, (screen_h - height) // 2)
         self.root.geometry(f"{width}x{height}+{x}+{y}")
-        self.root.minsize(min(700, width), min(560, height))
+        self.root.minsize(min(720, width), min(600, height))
         self.root.resizable(True, True)
 
     def _build(self):
@@ -34,25 +35,48 @@ class FilmBatchApp:
         outer.pack(fill=BOTH, expand=True)
         outer.columnconfigure(1, weight=1)
 
-        self.frame_dir = ttk.Entry(outer)
-        self.output_dir = ttk.Entry(outer)
+        ttk.Label(outer, text="Input mode").grid(row=0, column=0, sticky="w", padx=(0, 6), pady=2)
+        self.input_mode = ttk.Combobox(
+            outer,
+            state="readonly",
+            values=("Use existing frame directory", "Generate 360-degree yaw frames from source image"),
+        )
+        self.input_mode.set("Use existing frame directory")
+        self.input_mode.grid(row=0, column=1, columnspan=2, sticky="ew", pady=2)
 
-        self._path_row(outer, 0, "Target frame directory", self.frame_dir, self._choose_frames)
-        self._path_row(outer, 1, "Output directory", self.output_dir, self._choose_output)
+        self.frame_dir = ttk.Entry(outer)
+        self.source_image = ttk.Entry(outer)
+        self.output_dir = ttk.Entry(outer)
+        self._path_row(outer, 1, "Target frame directory", self.frame_dir, self._choose_frames)
+        self._path_row(outer, 2, "Source image", self.source_image, self._choose_source)
+        self._path_row(outer, 3, "Output directory", self.output_dir, self._choose_output)
+
+        generation = ttk.LabelFrame(outer, text="Optional target-frame generation", padding=8)
+        generation.grid(row=4, column=0, columnspan=3, sticky="nsew", pady=(8, 0))
+        generation.columnconfigure(1, weight=1)
+        generation.columnconfigure(3, weight=1)
+        self.frame_count = self._var_entry(generation, 0, 0, "Frame count", "48")
+        self.frame_canvas = self._var_entry(generation, 0, 2, "Frame canvas (px)", "1024")
+        self.frame_front = self._var_entry(generation, 1, 0, "Front image width (px)", "600")
+        self.camera_distance = self._var_entry(generation, 1, 2, "Perspective distance", "4.0")
+        ttk.Label(generation, text="Intensity mapping").grid(row=2, column=0, sticky="w", padx=(0, 4), pady=2)
+        self.mapping = ttk.Combobox(generation, state="readonly", values=MAPPING_MODES)
+        self.mapping.set("black/red bright, white dark")
+        self.mapping.grid(row=2, column=1, columnspan=3, sticky="ew", pady=2)
 
         note = (
-            "Film mode is intentionally Gerchberg-Saxton only. Input is a directory of target frames. "
-            "The normal DOE Generator remains available for Lens, Grating, FZP and Vortex designs."
+            "Film mode is intentionally Gerchberg-Saxton only. Target frames can be supplied directly "
+            "or generated as an evenly sampled vertical-axis rotation. The normal DOE Generator remains "
+            "available for Lens, Grating, FZP and Vortex designs."
         )
-        ttk.Label(outer, text=note, wraplength=830, justify=LEFT).grid(
-            row=2, column=0, columnspan=3, sticky="ew", pady=(6, 10)
+        ttk.Label(outer, text=note, wraplength=900, justify=LEFT).grid(
+            row=5, column=0, columnspan=3, sticky="ew", pady=(6, 10)
         )
 
         optics = ttk.LabelFrame(outer, text="GS optics", padding=8)
-        optics.grid(row=3, column=0, columnspan=3, sticky="nsew")
+        optics.grid(row=6, column=0, columnspan=3, sticky="nsew")
         optics.columnconfigure(1, weight=1)
         optics.columnconfigure(3, weight=1)
-
         self.width = self._var_entry(optics, 0, 0, "DOE width (px)", "512")
         self.height = self._var_entry(optics, 0, 2, "DOE height (px)", "512")
         self.pixel_nm = self._var_entry(optics, 1, 0, "DOE pixel size (nm)", "500")
@@ -63,7 +87,7 @@ class FilmBatchApp:
         self.seed = self._var_entry(optics, 3, 2, "GS seed", "0")
 
         target = ttk.LabelFrame(outer, text="Target plane", padding=8)
-        target.grid(row=4, column=0, columnspan=3, sticky="nsew", pady=(8, 0))
+        target.grid(row=7, column=0, columnspan=3, sticky="nsew", pady=(8, 0))
         target.columnconfigure(1, weight=1)
         target.columnconfigure(3, weight=1)
         self.target_x = self._var_entry(target, 0, 0, "Target X (mm)", "0")
@@ -72,7 +96,7 @@ class FilmBatchApp:
         self.tilt = self._var_entry(target, 1, 2, "Target tilt (deg)", "0")
 
         brightness = ttk.LabelFrame(outer, text="Brightness analysis", padding=8)
-        brightness.grid(row=5, column=0, columnspan=3, sticky="nsew", pady=(8, 0))
+        brightness.grid(row=8, column=0, columnspan=3, sticky="nsew", pady=(8, 0))
         brightness.columnconfigure(1, weight=1)
         self.active_threshold = self._var_entry(brightness, 0, 0, "Active threshold", "0.05")
         ttk.Label(brightness, text="Mode").grid(row=0, column=2, sticky="w", padx=(12, 4))
@@ -94,12 +118,12 @@ class FilmBatchApp:
                 "The batch reports a recommended external laser/duty factor. A simple scalar "
                 "brightness multiplier on the target image would be cancelled by GS normalization."
             ),
-            wraplength=810,
+            wraplength=870,
             justify=LEFT,
         ).grid(row=2, column=0, columnspan=4, sticky="ew", pady=(5, 0))
 
         layout = ttk.LabelFrame(outer, text="Disc layout", padding=8)
-        layout.grid(row=6, column=0, columnspan=3, sticky="nsew", pady=(8, 0))
+        layout.grid(row=9, column=0, columnspan=3, sticky="nsew", pady=(8, 0))
         layout.columnconfigure(1, weight=1)
         layout.columnconfigure(3, weight=1)
         self.ring_pitch = self._var_entry(layout, 0, 0, "Ring pitch (mm)", "2.5")
@@ -110,17 +134,17 @@ class FilmBatchApp:
         self.orientation.grid(row=1, column=1, sticky="ew", pady=2)
 
         buttons = ttk.Frame(outer)
-        buttons.grid(row=7, column=0, columnspan=3, sticky="ew", pady=10)
+        buttons.grid(row=10, column=0, columnspan=3, sticky="ew", pady=10)
         ttk.Button(buttons, text="Analyze frames", command=self._analyze).pack(side=LEFT)
         ttk.Button(buttons, text="Run GS batch", command=self._run).pack(side=RIGHT)
 
         self.progress = ttk.Progressbar(outer, orient=HORIZONTAL, mode="determinate", maximum=100)
-        self.progress.grid(row=8, column=0, columnspan=3, sticky="ew")
+        self.progress.grid(row=11, column=0, columnspan=3, sticky="ew")
         self.status = ttk.Label(outer, text="Ready.")
-        self.status.grid(row=9, column=0, columnspan=3, sticky="w", pady=(4, 4))
-        self.log = ScrolledText(outer, height=10, wrap="word")
-        self.log.grid(row=10, column=0, columnspan=3, sticky="nsew")
-        outer.rowconfigure(10, weight=1)
+        self.status.grid(row=12, column=0, columnspan=3, sticky="w", pady=(4, 4))
+        self.log = ScrolledText(outer, height=8, wrap="word")
+        self.log.grid(row=13, column=0, columnspan=3, sticky="nsew")
+        outer.rowconfigure(13, weight=1)
 
         ttk.Label(
             outer,
@@ -129,9 +153,9 @@ class FilmBatchApp:
                 "A separate physical-projection scaling mode is required before a 50 mm target can be "
                 "represented directly with the 500 nm DOE sampling used in the film concept."
             ),
-            wraplength=830,
+            wraplength=900,
             justify=LEFT,
-        ).grid(row=11, column=0, columnspan=3, sticky="ew", pady=(8, 0))
+        ).grid(row=14, column=0, columnspan=3, sticky="ew", pady=(8, 0))
 
     def _path_row(self, parent, row, text, entry, command):
         ttk.Label(parent, text=text).grid(row=row, column=0, sticky="w", padx=(0, 6), pady=2)
@@ -150,6 +174,17 @@ class FilmBatchApp:
         if path:
             self.frame_dir.delete(0, END)
             self.frame_dir.insert(0, path)
+            if not self.output_dir.get().strip():
+                self.output_dir.insert(0, str(Path(path).parent / "film_batch_output"))
+
+    def _choose_source(self):
+        path = filedialog.askopenfilename(
+            title="Select source image",
+            filetypes=(("Images", "*.png *.tif *.tiff *.jpg *.jpeg *.bmp"), ("All files", "*.*")),
+        )
+        if path:
+            self.source_image.delete(0, END)
+            self.source_image.insert(0, path)
             if not self.output_dir.get().strip():
                 self.output_dir.insert(0, str(Path(path).parent / "film_batch_output"))
 
@@ -186,15 +221,40 @@ class FilmBatchApp:
         self.log.see(END)
         self.root.update_idletasks()
 
+    def _prepare_frame_directory(self):
+        output_dir = self.output_dir.get().strip()
+        if not output_dir:
+            raise ValueError("Select an output directory.")
+
+        if self.input_mode.get() == "Generate 360-degree yaw frames from source image":
+            source = self.source_image.get().strip()
+            if not source:
+                raise ValueError("Select a source image.")
+            frames_dir = Path(output_dir) / "frames_raw"
+            metadata = generate_yaw_frames(
+                source,
+                frames_dir,
+                frame_count=int(self.frame_count.get()),
+                canvas_px=int(self.frame_canvas.get()),
+                front_size_px=float(self.frame_front.get()),
+                camera_distance=float(self.camera_distance.get()),
+                mapping=self.mapping.get(),
+            )
+            self._append(
+                f"Generated {metadata['frame_count']} target frames in {frames_dir}."
+            )
+            return str(frames_dir)
+
+        frame_dir = self.frame_dir.get().strip()
+        if not frame_dir:
+            raise ValueError("Select a target frame directory.")
+        return frame_dir
+
     def _analyze(self):
         try:
             config = self._config()
-            frame_dir = self.frame_dir.get().strip()
+            frame_dir = self._prepare_frame_directory()
             output_dir = self.output_dir.get().strip()
-            if not frame_dir:
-                raise ValueError("Select a target frame directory.")
-            if not output_dir:
-                raise ValueError("Select an output directory.")
             frames = discover_frames(frame_dir)
             output = Path(output_dir)
             rows = []
@@ -225,16 +285,14 @@ class FilmBatchApp:
     def _run(self):
         try:
             config = self._config()
-            frame_dir = self.frame_dir.get().strip()
             output_dir = self.output_dir.get().strip()
-            if not frame_dir:
-                raise ValueError("Select a target frame directory.")
             if not output_dir:
                 raise ValueError("Select an output directory.")
 
             self.progress["value"] = 0
             self.log.delete("1.0", END)
             self._append("Starting GS-only film batch...")
+            frame_dir = self._prepare_frame_directory()
             summary = run_batch(
                 frame_dir,
                 output_dir,

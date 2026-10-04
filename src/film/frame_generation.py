@@ -9,24 +9,16 @@ from PIL import Image
 MAPPING_MODES = (
     "grayscale as intensity",
     "invert grayscale",
-    "black/red bright, white dark",
 )
 
 
 def _target_intensity_image(source, mapping):
     rgb = np.asarray(source.convert("RGB"), dtype=np.float64) / 255.0
+    gray = 0.299 * rgb[:, :, 0] + 0.587 * rgb[:, :, 1] + 0.114 * rgb[:, :, 2]
     if mapping == "grayscale as intensity":
-        values = 0.299 * rgb[:, :, 0] + 0.587 * rgb[:, :, 1] + 0.114 * rgb[:, :, 2]
+        values = gray
     elif mapping == "invert grayscale":
-        gray = 0.299 * rgb[:, :, 0] + 0.587 * rgb[:, :, 1] + 0.114 * rgb[:, :, 2]
         values = 1.0 - gray
-    elif mapping == "black/red bright, white dark":
-        # Black and saturated red both have a low minimum RGB channel, while
-        # white has all channels high. A small floor suppresses light-gray
-        # source backgrounds without hard-binarizing anti-aliased edges.
-        raw = 1.0 - np.min(rgb, axis=2)
-        floor = 50.0 / 255.0
-        values = np.clip((raw - floor) / (1.0 - floor), 0.0, 1.0)
     else:
         raise ValueError(f"Unknown frame intensity mapping: {mapping}")
     return Image.fromarray(np.rint(np.clip(values, 0.0, 1.0) * 255.0).astype(np.uint8), mode="L")
@@ -127,7 +119,7 @@ def generate_yaw_frames(
     canvas_px=1024,
     front_size_px=600,
     camera_distance=4.0,
-    mapping="black/red bright, white dark",
+    mapping="invert grayscale",
 ):
     """Generate evenly spaced 360-degree target frames around a vertical axis."""
     frame_count = int(frame_count)

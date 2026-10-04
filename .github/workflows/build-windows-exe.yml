@@ -32,20 +32,36 @@ jobs:
       - name: Run tests
         run: python -m unittest discover -s tests -v
 
-      - name: Build EXE
+      - name: Build DOE Generator EXE
         run: python -m PyInstaller --clean --noconfirm config\GDoeSII_DOE_Generator.spec
 
-      - name: Verify EXE
+      - name: Build Film GS Batch EXE
+        run: python -m PyInstaller --clean --noconfirm config\GDoeSII_Film_GS_Batch.spec
+
+      - name: Verify EXEs
         shell: pwsh
         run: |
-          if (-not (Test-Path "dist\GDoeSII_DOE_Generator.exe")) {
-            throw "dist\GDoeSII_DOE_Generator.exe was not created"
+          $files = @(
+            "dist\GDoeSII_DOE_Generator.exe",
+            "dist\GDoeSII_Film_GS_Batch.exe"
+          )
+          foreach ($file in $files) {
+            if (-not (Test-Path $file)) {
+              throw "$file was not created"
+            }
+            Get-Item $file | Format-List FullName,Length,LastWriteTime
           }
-          Get-Item "dist\GDoeSII_DOE_Generator.exe" | Format-List FullName,Length,LastWriteTime
 
-      - name: Upload Windows EXE
+      - name: Upload DOE Generator EXE
         uses: actions/upload-artifact@v7
         with:
           name: GDoeSII-DOE-Generator-Windows-x64
           path: dist/GDoeSII_DOE_Generator.exe
+          if-no-files-found: error
+
+      - name: Upload Film GS Batch EXE
+        uses: actions/upload-artifact@v7
+        with:
+          name: GDoeSII-Film-GS-Batch-Windows-x64
+          path: dist/GDoeSII_Film_GS_Batch.exe
           if-no-files-found: error

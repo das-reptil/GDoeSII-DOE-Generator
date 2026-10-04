@@ -189,10 +189,14 @@ class FilmBatchApp:
     def _analyze(self):
         try:
             config = self._config()
-            frames = discover_frames(self.frame_dir.get().strip())
-            output = Path(self.output_dir.get().strip())
-            if not str(output):
+            frame_dir = self.frame_dir.get().strip()
+            output_dir = self.output_dir.get().strip()
+            if not frame_dir:
+                raise ValueError("Select a target frame directory.")
+            if not output_dir:
                 raise ValueError("Select an output directory.")
+            frames = discover_frames(frame_dir)
+            output = Path(output_dir)
             rows = []
             for index, frame in enumerate(frames):
                 row = analyze_frame(frame, config.active_threshold)

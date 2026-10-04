@@ -52,7 +52,7 @@ echo [5/6] Building DOE Generator EXE...
 if errorlevel 1 goto :error
 
 echo [6/6] Building Film GS Batch EXE...
-".venv\Scripts\python.exe" -m PyInstaller --clean --noconfirm config\GDoeSII_Film_GS_Batch.spec
+".venv\Scripts\python.exe" -m PyInstaller --clean --noconfirm config\film\GDoeSII_Film_GS_Batch.spec
 if errorlevel 1 goto :error
 
 if not exist "dist\GDoeSII_DOE_Generator.exe" goto :error

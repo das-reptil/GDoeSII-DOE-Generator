@@ -2,7 +2,11 @@
 
 ## Input
 
-The batch GUI accepts a directory of image frames. Supported image extensions are:
+The batch GUI supports two input modes.
+
+### Existing frame directory
+
+Supported image extensions are:
 
 ```text
 .png .tif .tiff .jpg .jpeg .bmp
@@ -11,18 +15,34 @@ The batch GUI accepts a directory of image frames. Supported image extensions ar
 Files are processed in sorted filename order. Numbered names such as
 `frame_000.png ... frame_047.png` are therefore recommended.
 
+### Generate 360-degree yaw frames
+
+A source image can be converted into an evenly sampled vertical-axis rotation before GS processing. The generator exposes:
+
+- frame count,
+- square frame canvas size,
+- front-facing image width,
+- perspective camera distance,
+- target-intensity mapping.
+
+For a 48-frame full rotation the nominal angle increment is `7.5 deg`.
+
+The default `black/red bright, white dark` mapping is intended for the current POF logo workflow. It maps black and saturated red source features to high target intensity while suppressing white/light areas. The generated monochromatic target frames are written to `frames_raw/` together with `frames.json` metadata.
+
+Exactly edge-on views at 90 and 270 degrees make the projective transformation singular. They are rendered with a very small 0.15-degree numerical offset while retaining the exact nominal frame angle in metadata.
+
 ## GS parameters
 
 The film GUI exposes only parameters relevant to arbitrary-image GS synthesis:
 
-- DOE width / height
-- DOE pixel size
-- wavelength
-- target z
-- GS target width (`0 = fit`)
-- GS iterations and seed
-- target X/Y
-- target pan / tilt
+- DOE width / height,
+- DOE pixel size,
+- wavelength,
+- target z,
+- GS target width (`0 = fit`),
+- GS iterations and seed,
+- target X/Y,
+- target pan / tilt.
 
 There is deliberately no DOE-type selector in this application.
 
@@ -48,7 +68,7 @@ For every frame the batch performs:
 
 ## Reproducibility
 
-The complete batch settings are written to `film_config.json`. The GS random seed is explicit, making repeated calculations with the same software and settings deterministic.
+The complete GS batch settings are written to `film_config.json`. Generated yaw frames additionally have `frames_raw/frames.json`. The GS random seed is explicit, making repeated calculations with the same software and settings deterministic.
 
 ## Performance
 

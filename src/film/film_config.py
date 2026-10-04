@@ -15,7 +15,8 @@ class FilmConfig:
     pixel_size_nm: float = 500.0
     wavelength_nm: float = 532.0
     target_distance_mm: float = 300.0
-    target_width_um: float = 0.0
+    target_width_um: float = 50000.0
+    propagation_mode: str = "physical projection"
     gs_iterations: int = 50
     seed: int = 0
 
@@ -44,6 +45,15 @@ class FilmConfig:
             raise ValueError("Target distance must be greater than 0 mm.")
         if float(self.target_width_um) < 0:
             raise ValueError("GS target width must be 0 (fit) or greater than 0 um.")
+        if self.propagation_mode not in ("physical projection", "same sampling"):
+            raise ValueError("Propagation mode must be physical projection or same sampling.")
+        if self.propagation_mode == "physical projection" and (
+            abs(float(self.target_pan_deg)) > 1e-12 or abs(float(self.target_tilt_deg)) > 1e-12
+        ):
+            raise ValueError(
+                "Physical projection currently requires pan = 0 deg and tilt = 0 deg. "
+                "Use same sampling for a tilted target plane."
+            )
         if int(self.gs_iterations) < 1:
             raise ValueError("GS iterations must be at least 1.")
         if not 0.0 <= float(self.active_threshold) < 1.0:
@@ -64,8 +74,14 @@ class FilmConfig:
             raise ValueError("Geometric gamma must be >= 0.")
         return self
 
+    @property
+    def target_width_mm(self):
+        return float(self.target_width_um) / 1000.0
+
     def to_dict(self):
-        return asdict(self)
+        data = asdict(self)
+        data["target_width_mm"] = self.target_width_mm
+        return data
 
     def save(self, file_name):
         path = Path(file_name)
@@ -76,4 +92,8 @@ class FilmConfig:
     @classmethod
     def load(cls, file_name):
         data = json.loads(Path(file_name).read_text(encoding="utf-8"))
+        # target_width_mm is a human-readable derived value written by current
+        # versions; target_width_um remains the canonical stored field for
+        # compatibility with older film project files.
+        data.pop("target_width_mm", None)
         return cls(**data).validate()

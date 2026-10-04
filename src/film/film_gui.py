@@ -7,6 +7,7 @@ from .film_batch import discover_frames, run_batch
 from .film_config import FilmConfig
 from .frame_analysis import analyze_frame, write_csv
 from .frame_generation import MAPPING_MODES, generate_yaw_frames
+from .physical_projection import physical_projection_sampling
 
 
 APP_TITLE = "GDoeSII Film / GS Batch"
@@ -82,9 +83,19 @@ class FilmBatchApp:
         self.pixel_nm = self._var_entry(optics, 1, 0, "DOE pixel size (nm)", "500")
         self.wavelength_nm = self._var_entry(optics, 1, 2, "Wavelength (nm)", "532")
         self.distance_mm = self._var_entry(optics, 2, 0, "Target z (mm)", "300")
-        self.target_width_um = self._var_entry(optics, 2, 2, "GS target width (um; 0=fit)", "0")
-        self.iterations = self._var_entry(optics, 3, 0, "GS iterations", "50")
-        self.seed = self._var_entry(optics, 3, 2, "GS seed", "0")
+        self.target_width_mm = self._var_entry(optics, 2, 2, "Target width (mm; 0=fit)", "50")
+        ttk.Label(optics, text="Propagation mode").grid(row=3, column=0, sticky="w", padx=(0, 4), pady=2)
+        self.propagation_mode = ttk.Combobox(
+            optics,
+            state="readonly",
+            values=("Physical projection", "Same sampling"),
+        )
+        self.propagation_mode.set("Physical projection")
+        self.propagation_mode.grid(row=3, column=1, sticky="ew", padx=(0, 10), pady=2)
+        self.iterations = self._var_entry(optics, 3, 2, "GS iterations", "50")
+        self.seed = self._var_entry(optics, 4, 0, "GS seed", "0")
+        self.projection_info = ttk.Label(optics, text="", wraplength=840, justify=LEFT)
+        self.projection_info.grid(row=4, column=2, columnspan=2, sticky="ew", pady=2)
 
         target = ttk.LabelFrame(outer, text="Target plane", padding=8)
         target.grid(row=7, column=0, columnspan=3, sticky="nsew", pady=(8, 0))
@@ -94,6 +105,12 @@ class FilmBatchApp:
         self.target_y = self._var_entry(target, 0, 2, "Target Y (mm)", "0")
         self.pan = self._var_entry(target, 1, 0, "Target pan (deg)", "0")
         self.tilt = self._var_entry(target, 1, 2, "Target tilt (deg)", "0")
+        ttk.Label(
+            target,
+            text="Physical projection currently supports a parallel target plane (pan = tilt = 0). Tilted targets remain available in Same sampling mode.",
+            wraplength=840,
+            justify=LEFT,
+        ).grid(row=2, column=0, columnspan=4, sticky="ew", pady=(4, 0))
 
         brightness = ttk.LabelFrame(outer, text="Brightness analysis", padding=8)
         brightness.grid(row=8, column=0, columnspan=3, sticky="nsew", pady=(8, 0))
@@ -146,16 +163,10 @@ class FilmBatchApp:
         self.log.grid(row=13, column=0, columnspan=3, sticky="nsew")
         outer.rowconfigure(13, weight=1)
 
-        ttk.Label(
-            outer,
-            text=(
-                "Current GS target-width calculation uses the existing same-sampling model. "
-                "A separate physical-projection scaling mode is required before a 50 mm target can be "
-                "represented directly with the 500 nm DOE sampling used in the film concept."
-            ),
-            wraplength=900,
-            justify=LEFT,
-        ).grid(row=14, column=0, columnspan=3, sticky="ew", pady=(8, 0))
+        for entry in (self.width, self.height, self.pixel_nm, self.wavelength_nm, self.distance_mm, self.target_width_mm):
+            entry.bind("<KeyRelease>", lambda _event: self._update_projection_info())
+        self.propagation_mode.bind("<<ComboboxSelected>>", lambda _event: self._update_projection_info())
+        self._update_projection_info()
 
     def _path_row(self, parent, row, text, entry, command):
         ttk.Label(parent, text=text).grid(row=row, column=0, sticky="w", padx=(0, 6), pady=2)
@@ -168,6 +179,43 @@ class FilmBatchApp:
         entry.insert(0, default)
         entry.grid(row=row, column=column + 1, sticky="ew", padx=(0, 10), pady=2)
         return entry
+
+    def _update_projection_info(self):
+        try:
+            width = int(self.width.get())
+            height = int(self.height.get())
+            pixel_nm = float(self.pixel_nm.get())
+            wavelength_nm = float(self.wavelength_nm.get())
+            distance_mm = float(self.distance_mm.get())
+            target_width_mm = float(self.target_width_mm.get())
+            if self.propagation_mode.get() == "Physical projection":
+                info = physical_projection_sampling(width, height, pixel_nm, wavelength_nm, distance_mm)
+                samples = (
+                    target_width_mm * 1000.0 / info["target_pixel_size_x_um"]
+                    if target_width_mm > 0 else None
+                )
+                text = (
+                    "Target sampling: {:.3f} x {:.3f} um/px; field: {:.3f} x {:.3f} mm".format(
+                        info["target_pixel_size_x_um"],
+                        info["target_pixel_size_y_um"],
+                        info["target_field_width_mm"],
+                        info["target_field_height_mm"],
+                    )
+                )
+                if samples is not None:
+                    text += "; {:.1f} samples across requested width".format(samples)
+                if info["sampling_warning"]:
+                    text += "; WARNING: " + info["sampling_warning"]
+            else:
+                pixel_um = pixel_nm / 1000.0
+                field_width_mm = width * pixel_um / 1000.0
+                field_height_mm = height * pixel_um / 1000.0
+                text = "Same sampling: {:.3f} um/px; field: {:.6f} x {:.6f} mm".format(
+                    pixel_um, field_width_mm, field_height_mm
+                )
+            self.projection_info.config(text=text)
+        except Exception:
+            self.projection_info.config(text="Projection sampling: enter valid optical parameters.")
 
     def _choose_frames(self):
         path = filedialog.askdirectory(title="Select directory with target frames")
@@ -201,7 +249,8 @@ class FilmBatchApp:
             pixel_size_nm=float(self.pixel_nm.get()),
             wavelength_nm=float(self.wavelength_nm.get()),
             target_distance_mm=float(self.distance_mm.get()),
-            target_width_um=float(self.target_width_um.get()),
+            target_width_um=float(self.target_width_mm.get()) * 1000.0,
+            propagation_mode=self.propagation_mode.get().strip().lower(),
             gs_iterations=int(self.iterations.get()),
             seed=int(self.seed.get()),
             target_x_mm=float(self.target_x.get()),
@@ -292,6 +341,10 @@ class FilmBatchApp:
             self.progress["value"] = 0
             self.log.delete("1.0", END)
             self._append("Starting GS-only film batch...")
+            if config.propagation_mode == "physical projection":
+                self._append("Propagation: physical projection (scaled Fresnel).")
+            else:
+                self._append("Propagation: legacy same sampling.")
             frame_dir = self._prepare_frame_directory()
             summary = run_batch(
                 frame_dir,
@@ -303,6 +356,14 @@ class FilmBatchApp:
             self.status.config(text=f"Completed {summary['frame_count']} frames.")
             self._append(f"Completed {summary['frame_count']} independent GS DOEs.")
             self._append(f"Output: {summary['output_directory']}")
+            if summary.get("physical_projection_sampling"):
+                sampling = summary["physical_projection_sampling"]
+                self._append(
+                    "Physical target sampling: {:.3f} um/px; field {:.3f} mm wide.".format(
+                        sampling["target_pixel_size_x_um"],
+                        sampling["target_field_width_mm"],
+                    )
+                )
             self._append("Brightness analysis: statistics/brightness_statistics.csv")
             self._append("Ring layout: layout/DOE_ring_layout.csv")
         except Exception as exc:

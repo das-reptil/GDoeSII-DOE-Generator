@@ -11,10 +11,16 @@ ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 sys.path.insert(0, str(SRC))
 
-from film.frame_generation import generate_yaw_frames  # noqa: E402
+from film.frame_generation import MAPPING_MODES, generate_yaw_frames  # noqa: E402
 
 
 class FilmFrameGenerationTests(unittest.TestCase):
+    def test_only_generic_mapping_modes_are_available(self):
+        self.assertEqual(
+            MAPPING_MODES,
+            ("grayscale as intensity", "invert grayscale"),
+        )
+
     def test_generate_yaw_frames(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -33,10 +39,11 @@ class FilmFrameGenerationTests(unittest.TestCase):
                 canvas_px=128,
                 front_size_px=72,
                 camera_distance=4.0,
-                mapping="black/red bright, white dark",
+                mapping="invert grayscale",
             )
 
             self.assertEqual(metadata["frame_count"], 8)
+            self.assertEqual(metadata["mapping"], "invert grayscale")
             self.assertTrue((output / "frame_000.png").exists())
             self.assertTrue((output / "frame_007.png").exists())
             self.assertTrue((output / "frames.json").exists())
